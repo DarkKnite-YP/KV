@@ -2,6 +2,17 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { MOCK_PRODUCTS, MOCK_TREES, MOCK_JOURNAL_ARTICLES } from '../lib/mockData';
 import type { Product, Tree, JournalArticle } from '../types/database';
+import { supabase } from '../lib/supabase';
+
+const isRealSupabase = (): boolean => {
+  const url = import.meta.env.VITE_SUPABASE_URL || import.meta.env.NEXT_PUBLIC_SUPABASE_URL;
+  return Boolean(url && !url.includes('placeholder') && url.startsWith('https://'));
+};
+
+const isUuid = (str?: string | null): boolean => {
+  if (!str) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+};
 
 export interface PackagingItem {
   id: string;
@@ -266,12 +277,34 @@ export const useOrchardStore = create<OrchardState>()(
 
       // ─── Products ───
       updateProduct: (id, updates) => {
-        const prev = get().products.find((p) => p.id === id);
+        const prev = get().products.find((p) => p.id === id || p.slug === id);
+        const targetId = prev?.id || id;
+        const targetSlug = prev?.slug;
+
         set((state) => ({
           products: state.products.map((p) =>
-            p.id === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p
+            p.id === id || p.slug === id ? { ...p, ...updates, updated_at: new Date().toISOString() } : p
           ),
         }));
+
+        if (isRealSupabase()) {
+          const supabaseUpdates: any = {
+            ...updates,
+            updated_at: new Date().toISOString(),
+          };
+          delete supabaseUpdates.id;
+
+          const query = (supabase.from('products') as any).update(supabaseUpdates);
+          if (isUuid(targetId)) {
+            query.eq('id', targetId).then(({ error }: any) => {
+              if (error) console.error('Failed to update product in Supabase by ID:', error);
+            });
+          } else if (targetSlug) {
+            query.eq('slug', targetSlug).then(({ error }: any) => {
+              if (error) console.error('Failed to update product in Supabase by slug:', error);
+            });
+          }
+        }
 
         get().logActivity({
           action: 'Product Updated',
@@ -293,6 +326,30 @@ export const useOrchardStore = create<OrchardState>()(
           updated_at: new Date().toISOString(),
         };
         set((state) => ({ products: [...state.products, product] }));
+
+        if (isRealSupabase()) {
+          (supabase.from('products') as any).insert({
+            name: newProd.name,
+            slug: newProd.slug,
+            tagline: newProd.tagline,
+            description: newProd.description,
+            short_description: newProd.short_description,
+            price: newProd.price,
+            compare_price: newProd.compare_price,
+            weight_kg: newProd.weight_kg,
+            mango_count: newProd.mango_count,
+            min_weight_g: newProd.min_weight_g,
+            is_bagged: newProd.is_bagged,
+            stock_quantity: newProd.stock_quantity,
+            is_available: newProd.is_available,
+            sort_order: newProd.sort_order,
+            seo_title: newProd.seo_title,
+            seo_description: newProd.seo_description,
+          }).then(({ error }: any) => {
+            if (error) console.error('Failed to add product to Supabase:', error);
+          });
+        }
+
         get().logActivity({
           action: 'Product Added',
           target_type: 'product',
@@ -303,14 +360,31 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       toggleProductStock: (id) => {
-        const prod = get().products.find((p) => p.id === id);
+        const prod = get().products.find((p) => p.id === id || p.slug === id);
         if (!prod) return;
         const newStatus = !prod.is_available;
         set((state) => ({
           products: state.products.map((p) =>
-            p.id === id ? { ...p, is_available: newStatus, updated_at: new Date().toISOString() } : p
+            p.id === id || p.slug === id ? { ...p, is_available: newStatus, updated_at: new Date().toISOString() } : p
           ),
         }));
+
+        if (isRealSupabase()) {
+          const query = (supabase.from('products') as any).update({
+            is_available: newStatus,
+            updated_at: new Date().toISOString(),
+          });
+          if (isUuid(prod.id)) {
+            query.eq('id', prod.id).then(({ error }: any) => {
+              if (error) console.error('Failed to toggle stock in Supabase:', error);
+            });
+          } else {
+            query.eq('slug', prod.slug).then(({ error }: any) => {
+              if (error) console.error('Failed to toggle stock in Supabase by slug:', error);
+            });
+          }
+        }
+
         get().logActivity({
           action: 'Product Availability Toggled',
           target_type: 'product',
@@ -323,14 +397,14 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       adjustProductStock: (id, newStock, reason) => {
-        const prod = get().products.find((p) => p.id === id);
+        const prod = get().products.find((p) => p.id === id || p.slug === id);
         if (!prod) return;
         const prevStock = prod.stock_quantity;
         const adjustment = newStock - prevStock;
 
         set((state) => ({
           products: state.products.map((p) =>
-            p.id === id ? { ...p, stock_quantity: newStock, updated_at: new Date().toISOString() } : p
+            p.id === id || p.slug === id ? { ...p, stock_quantity: newStock, updated_at: new Date().toISOString() } : p
           ),
           inventoryLogs: [
             {
@@ -348,6 +422,35 @@ export const useOrchardStore = create<OrchardState>()(
             ...state.inventoryLogs,
           ],
         }));
+
+        if (isRealSupabase()) {
+          const query = (supabase.from('products') as any).update({
+            stock_quantity: newStock,
+            updated_at: new Date().toISOString(),
+          });
+          if (isUuid(prod.id)) {
+            query.eq('id', prod.id).then(({ error }: any) => {
+              if (error) console.error('Failed to adjust stock in Supabase:', error);
+            });
+          } else {
+            query.eq('slug', prod.slug).then(({ error }: any) => {
+              if (error) console.error('Failed to adjust stock in Supabase by slug:', error);
+            });
+          }
+
+          (supabase.from('inventory_logs') as any).insert({
+            item_type: 'product',
+            item_id: prod.id,
+            item_name: prod.name,
+            previous_quantity: prevStock,
+            new_quantity: newStock,
+            adjustment,
+            reason,
+            created_by: 'Admin',
+          }).then(({ error }: any) => {
+            if (error) console.warn('Supabase inventory log warning:', error.message);
+          });
+        }
 
         get().logActivity({
           action: 'Product Stock Adjusted',
@@ -368,6 +471,15 @@ export const useOrchardStore = create<OrchardState>()(
             t.tree_id === treeId ? { ...t, ...updates, updated_at: new Date().toISOString() } : t
           ),
         }));
+
+        if (isRealSupabase()) {
+          const supabaseUpdates: any = { ...updates, updated_at: new Date().toISOString() };
+          delete supabaseUpdates.id;
+          (supabase.from('trees') as any).update(supabaseUpdates).eq('tree_id', treeId).then(({ error }: any) => {
+            if (error) console.error(`Failed to update tree ${treeId} in Supabase:`, error);
+          });
+        }
+
         get().logActivity({
           action: 'Tree Updated',
           target_type: 'tree',
@@ -388,6 +500,16 @@ export const useOrchardStore = create<OrchardState>()(
             t.tree_id === treeId ? { ...t, status, updated_at: new Date().toISOString() } : t
           ),
         }));
+
+        if (isRealSupabase()) {
+          (supabase.from('trees') as any)
+            .update({ status, updated_at: new Date().toISOString() })
+            .eq('tree_id', treeId)
+            .then(({ error }: any) => {
+              if (error) console.error(`Failed to set tree status for ${treeId} in Supabase:`, error);
+            });
+        }
+
         get().logActivity({
           action: 'Tree Status Changed',
           target_type: 'tree',
@@ -405,6 +527,16 @@ export const useOrchardStore = create<OrchardState>()(
             t.tree_id === treeId ? { ...t, photo_url: photoUrl, updated_at: new Date().toISOString() } : t
           ),
         }));
+
+        if (isRealSupabase()) {
+          (supabase.from('trees') as any)
+            .update({ photo_url: photoUrl, updated_at: new Date().toISOString() })
+            .eq('tree_id', treeId)
+            .then(({ error }: any) => {
+              if (error) console.error(`Failed to update tree photo for ${treeId} in Supabase:`, error);
+            });
+        }
+
         get().logActivity({
           action: 'Tree Photo Uploaded',
           target_type: 'tree',
@@ -420,6 +552,15 @@ export const useOrchardStore = create<OrchardState>()(
             t.tree_id === treeId ? { ...t, adoption_fee: feeInPaise, updated_at: new Date().toISOString() } : t
           ),
         }));
+
+        if (isRealSupabase()) {
+          (supabase.from('trees') as any)
+            .update({ adoption_fee: feeInPaise, updated_at: new Date().toISOString() })
+            .eq('tree_id', treeId)
+            .then(({ error }: any) => {
+              if (error) console.error(`Failed to update tree adoption fee in Supabase:`, error);
+            });
+        }
       },
 
       reserveTree: (treeId, adopter) => {
@@ -437,6 +578,21 @@ export const useOrchardStore = create<OrchardState>()(
               : t
           ),
         }));
+
+        if (isRealSupabase()) {
+          (supabase.from('trees') as any)
+            .update({
+              status: 'reserved',
+              adopter_name: adopter.name,
+              adopter_phone: adopter.phone,
+              adopter_email: adopter.email || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('tree_id', treeId)
+            .then(({ error }: any) => {
+              if (error) console.error(`Failed to reserve tree ${treeId} in Supabase:`, error);
+            });
+        }
       },
 
       adoptTree: (treeId, adopter) => {
@@ -454,6 +610,22 @@ export const useOrchardStore = create<OrchardState>()(
               : t
           ),
         }));
+
+        if (isRealSupabase()) {
+          (supabase.from('trees') as any)
+            .update({
+              status: 'adopted',
+              adopter_name: adopter.name,
+              adopter_phone: adopter.phone,
+              adopter_email: adopter.email || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('tree_id', treeId)
+            .then(({ error }: any) => {
+              if (error) console.error(`Failed to adopt tree ${treeId} in Supabase:`, error);
+            });
+        }
+
         get().logActivity({
           action: 'Tree Adopted',
           target_type: 'tree',
@@ -468,11 +640,20 @@ export const useOrchardStore = create<OrchardState>()(
         const prev = get().pricingConfig;
         set((state) => ({
           pricingConfig: { ...state.pricingConfig, ...updates },
-          // If price changed, update all available trees fee
           trees: updates.price
             ? state.trees.map((t) => (t.status === 'available' ? { ...t, adoption_fee: updates.price! } : t))
             : state.trees,
         }));
+
+        if (isRealSupabase() && updates.price) {
+          (supabase.from('trees') as any)
+            .update({ adoption_fee: updates.price, updated_at: new Date().toISOString() })
+            .eq('status', 'available')
+            .then(({ error }: any) => {
+              if (error) console.error('Failed to update adoption fee for trees in Supabase:', error);
+            });
+        }
+
         get().logActivity({
           action: 'Adoption Pricing Settings Updated',
           target_type: 'pricing',
@@ -489,6 +670,28 @@ export const useOrchardStore = create<OrchardState>()(
         const id = `ord-${Date.now()}`;
         const newOrder: HarvestOrderItem = { ...orderData, id };
         set((state) => ({ orders: [newOrder, ...state.orders] }));
+
+        if (isRealSupabase()) {
+          (supabase.from('orders') as any).insert({
+            order_number: newOrder.order_number,
+            customer_name: newOrder.customer_name,
+            phone: newOrder.phone,
+            email: newOrder.email,
+            status: newOrder.status,
+            payment_status: newOrder.payment_status,
+            subtotal: newOrder.subtotal,
+            shipping_amount: newOrder.shipping_amount,
+            total_amount: newOrder.total_amount,
+            delivery_address: newOrder.delivery_address,
+            courier_name: newOrder.courier_name || null,
+            tracking_number: newOrder.tracking_number || null,
+            dispatch_date: newOrder.dispatch_date || null,
+            notes: newOrder.notes ? `${newOrder.notes} | Items: ${newOrder.items_summary}` : `Items: ${newOrder.items_summary}`,
+          }).then(({ error }: any) => {
+            if (error) console.error('Failed to insert order into Supabase:', error);
+          });
+        }
+
         get().logActivity({
           action: 'Order Placed',
           target_type: 'order',
@@ -499,14 +702,36 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       updateOrderStatus: (orderId, status, note) => {
-        const order = get().orders.find((o) => o.id === orderId);
+        const order = get().orders.find((o) => o.id === orderId || o.order_number === orderId);
         if (!order) return;
         const prevStatus = order.status;
+        const newNotes = note ? `${order.notes || ''}\n${note}`.trim() : order.notes;
+
         set((state) => ({
           orders: state.orders.map((o) =>
-            o.id === orderId ? { ...o, status, notes: note ? `${o.notes || ''}\n${note}` : o.notes } : o
+            o.id === order.id || o.order_number === order.order_number ? { ...o, status, notes: newNotes } : o
           ),
         }));
+
+        if (isRealSupabase()) {
+          const updates: any = {
+            status,
+            updated_at: new Date().toISOString(),
+          };
+          if (note) updates.notes = newNotes;
+
+          const query = (supabase.from('orders') as any).update(updates);
+          if (isUuid(order.id)) {
+            query.eq('id', order.id).then(({ error }: any) => {
+              if (error) console.error('Failed to update order status in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('order_number', order.order_number).then(({ error }: any) => {
+              if (error) console.error('Failed to update order status in Supabase by order_number:', error);
+            });
+          }
+        }
+
         get().logActivity({
           action: 'Order Status Updated',
           target_type: 'order',
@@ -519,21 +744,45 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       updateOrderTracking: (orderId, courier, trackingNumber, dispatchDate) => {
-        const order = get().orders.find((o) => o.id === orderId);
+        const order = get().orders.find((o) => o.id === orderId || o.order_number === orderId);
         if (!order) return;
+        const dispatchD = dispatchDate || new Date().toISOString().split('T')[0];
+
         set((state) => ({
           orders: state.orders.map((o) =>
-            o.id === orderId
+            o.id === order.id || o.order_number === order.order_number
               ? {
                   ...o,
                   courier_name: courier,
                   tracking_number: trackingNumber,
-                  dispatch_date: dispatchDate || new Date().toISOString().split('T')[0],
+                  dispatch_date: dispatchD,
                   status: 'dispatched',
                 }
               : o
           ),
         }));
+
+        if (isRealSupabase()) {
+          const updates: any = {
+            courier_name: courier,
+            tracking_number: trackingNumber,
+            dispatch_date: dispatchD,
+            status: 'dispatched',
+            updated_at: new Date().toISOString(),
+          };
+
+          const query = (supabase.from('orders') as any).update(updates);
+          if (isUuid(order.id)) {
+            query.eq('id', order.id).then(({ error }: any) => {
+              if (error) console.error('Failed to update order tracking in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('order_number', order.order_number).then(({ error }: any) => {
+              if (error) console.error('Failed to update order tracking in Supabase by order_number:', error);
+            });
+          }
+        }
+
         get().logActivity({
           action: 'Order Tracking Added',
           target_type: 'order',
@@ -544,9 +793,26 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       updateOrderNotes: (orderId, notes) => {
+        const order = get().orders.find((o) => o.id === orderId || o.order_number === orderId);
+        if (!order) return;
         set((state) => ({
-          orders: state.orders.map((o) => (o.id === orderId ? { ...o, notes } : o)),
+          orders: state.orders.map((o) =>
+            o.id === order.id || o.order_number === order.order_number ? { ...o, notes } : o
+          ),
         }));
+
+        if (isRealSupabase()) {
+          const query = (supabase.from('orders') as any).update({ notes, updated_at: new Date().toISOString() });
+          if (isUuid(order.id)) {
+            query.eq('id', order.id).then(({ error }: any) => {
+              if (error) console.error('Failed to update order notes in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('order_number', order.order_number).then(({ error }: any) => {
+              if (error) console.error('Failed to update order notes in Supabase by order_number:', error);
+            });
+          }
+        }
       },
 
       // ─── Visits ───
@@ -563,6 +829,22 @@ export const useOrchardStore = create<OrchardState>()(
         };
 
         set((state) => ({ visits: [newVisit, ...state.visits] }));
+
+        if (isRealSupabase()) {
+          (supabase.from('visit_requests') as any).insert({
+            request_number: requestNumber,
+            name: reqData.name,
+            phone: reqData.phone,
+            email: reqData.email || null,
+            preferred_date: reqData.preferred_date,
+            number_of_visitors: reqData.number_of_visitors,
+            message: reqData.message || null,
+            status: 'pending',
+          }).then(({ error }: any) => {
+            if (error) console.error('Failed to insert visit request into Supabase:', error);
+          });
+        }
+
         get().logActivity({
           action: 'Visit Requested',
           target_type: 'visit',
@@ -574,14 +856,40 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       updateVisitStatus: (id, status, adminNotes) => {
-        const visit = get().visits.find((v) => v.id === id);
+        const visit = get().visits.find((v) => v.id === id || v.request_number === id);
         if (!visit) return;
         const prevStatus = visit.status;
         set((state) => ({
           visits: state.visits.map((v) =>
-            v.id === id ? { ...v, status, admin_notes: adminNotes || v.admin_notes } : v
+            v.id === visit.id || v.request_number === visit.request_number
+              ? {
+                  ...v,
+                  status,
+                  admin_notes: adminNotes !== undefined ? adminNotes : v.admin_notes,
+                }
+              : v
           ),
         }));
+
+        if (isRealSupabase()) {
+          const updates: any = {
+            status,
+            updated_at: new Date().toISOString(),
+          };
+          if (adminNotes !== undefined) updates.admin_notes = adminNotes;
+
+          const query = (supabase.from('visit_requests') as any).update(updates);
+          if (isUuid(visit.id)) {
+            query.eq('id', visit.id).then(({ error }: any) => {
+              if (error) console.error('Failed to update visit status in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('request_number', visit.request_number).then(({ error }: any) => {
+              if (error) console.error('Failed to update visit status in Supabase by request_number:', error);
+            });
+          }
+        }
+
         get().logActivity({
           action: 'Visit Status Updated',
           target_type: 'visit',
@@ -594,11 +902,11 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       cancelVisit: (id, reason) => {
-        const visit = get().visits.find((v) => v.id === id);
+        const visit = get().visits.find((v) => v.id === id || v.request_number === id);
         if (!visit) return;
         set((state) => ({
           visits: state.visits.map((v) =>
-            v.id === id
+            v.id === visit.id || v.request_number === visit.request_number
               ? {
                   ...v,
                   previous_status: v.status,
@@ -608,6 +916,24 @@ export const useOrchardStore = create<OrchardState>()(
               : v
           ),
         }));
+
+        if (isRealSupabase()) {
+          const query = (supabase.from('visit_requests') as any).update({
+            status: 'cancelled',
+            cancelled_reason: reason || 'Cancelled by admin',
+            updated_at: new Date().toISOString(),
+          });
+          if (isUuid(visit.id)) {
+            query.eq('id', visit.id).then(({ error }: any) => {
+              if (error) console.error('Failed to cancel visit in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('request_number', visit.request_number).then(({ error }: any) => {
+              if (error) console.error('Failed to cancel visit in Supabase by request_number:', error);
+            });
+          }
+        }
+
         get().logActivity({
           action: 'Visit Cancelled',
           target_type: 'visit',
@@ -619,12 +945,12 @@ export const useOrchardStore = create<OrchardState>()(
 
       // Cancellation Undo / Restore
       restoreVisit: (id) => {
-        const visit = get().visits.find((v) => v.id === id);
+        const visit = get().visits.find((v) => v.id === id || v.request_number === id);
         if (!visit) return;
         const targetStatus = (visit.previous_status as OrchardVisitItem['status']) || 'pending';
         set((state) => ({
           visits: state.visits.map((v) =>
-            v.id === id
+            v.id === visit.id || v.request_number === visit.request_number
               ? {
                   ...v,
                   status: targetStatus,
@@ -634,6 +960,25 @@ export const useOrchardStore = create<OrchardState>()(
               : v
           ),
         }));
+
+        if (isRealSupabase()) {
+          const query = (supabase.from('visit_requests') as any).update({
+            status: targetStatus,
+            cancelled_reason: null,
+            restored_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          });
+          if (isUuid(visit.id)) {
+            query.eq('id', visit.id).then(({ error }: any) => {
+              if (error) console.error('Failed to restore visit in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('request_number', visit.request_number).then(({ error }: any) => {
+              if (error) console.error('Failed to restore visit in Supabase by request_number:', error);
+            });
+          }
+        }
+
         get().logActivity({
           action: 'Visit Restored (Undo)',
           target_type: 'visit',
@@ -653,6 +998,30 @@ export const useOrchardStore = create<OrchardState>()(
           updated_at: new Date().toISOString(),
         };
         set((state) => ({ articles: [article, ...state.articles] }));
+
+        if (isRealSupabase()) {
+          (supabase.from('journal_articles') as any).insert({
+            title: newArticle.title,
+            slug: newArticle.slug,
+            excerpt: newArticle.excerpt,
+            content: newArticle.content,
+            cover_image_url: newArticle.cover_image_url,
+            cover_image_alt: newArticle.cover_image_alt,
+            category: newArticle.category,
+            tags: newArticle.tags,
+            season: newArticle.season,
+            status: newArticle.status,
+            is_featured: newArticle.is_featured,
+            author_name: newArticle.author_name,
+            reading_time_min: newArticle.reading_time_min,
+            seo_title: newArticle.seo_title,
+            seo_description: newArticle.seo_description,
+            published_at: newArticle.published_at,
+          }).then(({ error }: any) => {
+            if (error) console.error('Failed to insert article in Supabase:', error);
+          });
+        }
+
         get().logActivity({
           action: 'Journal Article Created',
           target_type: 'journal',
@@ -663,11 +1032,29 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       updateArticle: (id, updates) => {
+        const art = get().articles.find((a) => a.id === id || a.slug === id);
         set((state) => ({
           articles: state.articles.map((a) =>
-            a.id === id ? { ...a, ...updates, updated_at: new Date().toISOString() } : a
+            a.id === id || a.slug === id ? { ...a, ...updates, updated_at: new Date().toISOString() } : a
           ),
         }));
+
+        if (isRealSupabase() && art) {
+          const supabaseUpdates: any = { ...updates, updated_at: new Date().toISOString() };
+          delete supabaseUpdates.id;
+
+          const query = (supabase.from('journal_articles') as any).update(supabaseUpdates);
+          if (isUuid(art.id)) {
+            query.eq('id', art.id).then(({ error }: any) => {
+              if (error) console.error('Failed to update article in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('slug', art.slug).then(({ error }: any) => {
+              if (error) console.error('Failed to update article in Supabase by slug:', error);
+            });
+          }
+        }
+
         get().logActivity({
           action: 'Journal Article Edited',
           target_type: 'journal',
@@ -678,10 +1065,24 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       deleteArticle: (id) => {
-        const art = get().articles.find((a) => a.id === id);
+        const art = get().articles.find((a) => a.id === id || a.slug === id);
         set((state) => ({
-          articles: state.articles.filter((a) => a.id !== id),
+          articles: state.articles.filter((a) => a.id !== id && a.slug !== id),
         }));
+
+        if (isRealSupabase() && art) {
+          const query = (supabase.from('journal_articles') as any).delete();
+          if (isUuid(art.id)) {
+            query.eq('id', art.id).then(({ error }: any) => {
+              if (error) console.error('Failed to delete article in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('slug', art.slug).then(({ error }: any) => {
+              if (error) console.error('Failed to delete article in Supabase by slug:', error);
+            });
+          }
+        }
+
         get().logActivity({
           action: 'Journal Article Deleted',
           target_type: 'journal',
@@ -693,20 +1094,20 @@ export const useOrchardStore = create<OrchardState>()(
 
       // ─── Packaging Inventory ───
       adjustPackagingStock: (id, newStock, reason) => {
-        const item = get().packaging.find((p) => p.id === id);
+        const item = get().packaging.find((p) => p.id === id || p.sku === id);
         if (!item) return;
         const prevStock = item.current_stock;
         const adjustment = newStock - prevStock;
 
         set((state) => ({
           packaging: state.packaging.map((p) =>
-            p.id === id ? { ...p, current_stock: newStock, last_restocked: new Date().toISOString().split('T')[0] } : p
+            p.id === item.id || p.sku === item.sku ? { ...p, current_stock: newStock, last_restocked: new Date().toISOString().split('T')[0] } : p
           ),
           inventoryLogs: [
             {
               id: `log-${Date.now()}`,
               item_type: 'packaging',
-              item_id: id,
+              item_id: item.id,
               item_name: item.name,
               previous_quantity: prevStock,
               new_quantity: newStock,
@@ -718,6 +1119,35 @@ export const useOrchardStore = create<OrchardState>()(
             ...state.inventoryLogs,
           ],
         }));
+
+        if (isRealSupabase()) {
+          const query = (supabase.from('packaging_inventory') as any).update({
+            current_stock: newStock,
+            updated_at: new Date().toISOString(),
+          });
+          if (isUuid(item.id)) {
+            query.eq('id', item.id).then(({ error }: any) => {
+              if (error) console.error('Failed to update packaging stock in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('sku', item.sku).then(({ error }: any) => {
+              if (error) console.error('Failed to update packaging stock in Supabase by SKU:', error);
+            });
+          }
+
+          (supabase.from('inventory_logs') as any).insert({
+            item_type: 'packaging',
+            item_id: item.id,
+            item_name: item.name,
+            previous_quantity: prevStock,
+            new_quantity: newStock,
+            adjustment,
+            reason,
+            created_by: 'Admin',
+          }).then(({ error }: any) => {
+            if (error) console.warn('Supabase packaging inventory log warning:', error.message);
+          });
+        }
 
         get().logActivity({
           action: 'Packaging Inventory Adjusted',
@@ -736,6 +1166,20 @@ export const useOrchardStore = create<OrchardState>()(
           created_at: new Date().toISOString(),
         };
         set((state) => ({ activityLogs: [log, ...state.activityLogs.slice(0, 99)] }));
+
+        if (isRealSupabase()) {
+          (supabase.from('admin_activity_logs') as any).insert({
+            action: logData.action,
+            target_type: logData.target_type,
+            target_id: logData.target_id,
+            description: logData.description,
+            previous_value: logData.previous_value || null,
+            new_value: logData.new_value || null,
+            admin_user: logData.admin_user || 'Admin',
+          }).then(({ error }: any) => {
+            if (error) console.warn('Supabase activity log warning:', error.message);
+          });
+        }
       },
     }),
     {

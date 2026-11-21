@@ -825,11 +825,13 @@ export default function AdminDashboard() {
                         <div className="space-y-1.5 border-t border-charcoal/10 pt-3 text-charcoal/70">
                           <div className="flex justify-between">
                             <span>Box Weight</span>
-                            <span className="font-semibold text-charcoal">{p.box_weight_kg ? `${p.box_weight_kg} kg` : `${p.piece_count} mangoes`}</span>
+                            <span className="font-semibold text-charcoal">
+                              {p.box_weight_kg ? `${p.box_weight_kg} kg` : (p.weight_kg ? `${p.weight_kg} kg` : (p.piece_count ? `${p.piece_count} mangoes` : (p.mango_count ? `${p.mango_count} mangoes` : '10 kg')))}
+                            </span>
                           </div>
                           <div className="flex justify-between">
                             <span>Minimum Fruit Spec</span>
-                            <span className="font-semibold text-charcoal">{p.min_mango_weight_g}g+</span>
+                            <span className="font-semibold text-charcoal">{p.min_mango_weight_g || p.min_weight_g || 200}g+</span>
                           </div>
                           <div className="flex justify-between">
                             <span>Stock Remaining</span>
@@ -2092,7 +2094,7 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+            <div key={editingProduct?.id || 'new-product'} className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
               <div>
                 <label className="font-semibold text-charcoal block mb-1">Product Name</label>
                 <input
@@ -2214,6 +2216,7 @@ export default function AdminDashboard() {
                     });
                   }
 
+                  setSupabaseSyncStatus('Product changes saved and synced to database.');
                   setEditingProduct(null);
                   setIsAddProductOpen(false);
                 }}
@@ -2249,7 +2252,7 @@ export default function AdminDashboard() {
               </button>
             </div>
 
-            <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
+            <div key={editingProduct?.id || 'new-product'} className="space-y-3 max-h-[70vh] overflow-y-auto pr-1">
               <div>
                 <label className="font-semibold text-charcoal block mb-1">Story Title</label>
                 <input

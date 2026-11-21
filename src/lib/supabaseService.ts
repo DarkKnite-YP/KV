@@ -76,6 +76,8 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
         number_of_visitors: v.number_of_visitors,
         message: v.message || v.notes || null,
         status: v.status,
+        admin_notes: v.admin_notes || undefined,
+        cancelled_reason: v.cancelled_reason || undefined,
         created_at: v.created_at,
       }));
       useOrchardStore.setState({ visits: mappedVisits as any });
@@ -88,27 +90,61 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
       .order('created_at', { ascending: false });
 
     if (!orderErr && dbOrders) {
-      const mappedOrders = dbOrders.map((o: any) => ({
-        id: o.id,
-        order_number: o.order_number,
-        customer_name: o.customer_name,
-        phone: o.phone,
-        email: o.email,
-        order_date: o.created_at ? o.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
-        items_summary: 'Harvest Order',
-        items_count: 1,
-        subtotal: o.subtotal,
-        shipping_amount: o.shipping_amount,
-        total_amount: o.total_amount,
-        status: o.status,
-        payment_status: o.payment_status,
-        delivery_address: o.delivery_address || {},
-        courier_name: o.courier_name,
-        tracking_number: o.tracking_number,
-        dispatch_date: o.dispatch_date,
-        notes: o.notes,
-      }));
+      const mappedOrders = dbOrders
+        .filter((o: any) => !o.order_number?.startsWith('TEST-PERM'))
+        .map((o: any) => {
+          const notes = o.notes || '';
+          let itemsSummary = 'Harvest Order';
+          if (notes.includes('Items:')) {
+            itemsSummary = notes.split('Items:')[1].trim();
+          } else if (notes) {
+            itemsSummary = notes;
+          }
+
+          return {
+            id: o.id,
+            order_number: o.order_number,
+            customer_name: o.customer_name,
+            phone: o.phone,
+            email: o.email,
+            order_date: o.created_at ? o.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
+            items_summary: itemsSummary,
+            items_count: 1,
+            subtotal: o.subtotal,
+            shipping_amount: o.shipping_amount,
+            total_amount: o.total_amount,
+            status: o.status,
+            payment_status: o.payment_status,
+            delivery_address: o.delivery_address || {},
+            courier_name: o.courier_name,
+            tracking_number: o.tracking_number,
+            dispatch_date: o.dispatch_date,
+            notes: o.notes,
+          };
+        });
       useOrchardStore.setState({ orders: mappedOrders });
+    }
+
+    // 7. Fetch Inventory Logs
+    const { data: dbInvLogs } = await supabase
+      .from('inventory_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (dbInvLogs && dbInvLogs.length > 0) {
+      useOrchardStore.setState({ inventoryLogs: dbInvLogs as any });
+    }
+
+    // 8. Fetch Activity Logs
+    const { data: dbActLogs } = await supabase
+      .from('admin_activity_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    if (dbActLogs && dbActLogs.length > 0) {
+      useOrchardStore.setState({ activityLogs: dbActLogs as any });
     }
 
     return { success: true, message: 'Successfully synced all data from Supabase!' };
