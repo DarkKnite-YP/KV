@@ -416,9 +416,10 @@ export default function AdoptPage() {
               {selectedTree.status === 'available' ? (
                 <Button
                   onClick={() => navigate(`/adopt-a-tree/checkout?tree=${selectedTree.tree_id}`)}
-                  variant="primary"
+                  variant="gold"
                   size="lg"
                   fullWidth
+                  className="shadow-md"
                 >
                   Adopt Tree {selectedTree.tree_id} for {formatPrice(selectedTree.adoption_fee || pricingConfig.price)}
                 </Button>

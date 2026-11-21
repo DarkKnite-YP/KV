@@ -1,13 +1,15 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
 import { Container, Button, Input, Select, Badge } from '../../components/ui';
 import { SEO } from '../../components/ui/SEO';
+import { AuthModal } from '../../components/auth/AuthModal';
+import { useAuthStore } from '../../stores/authStore';
 import { useOrchardStore } from '../../stores/orchardStore';
 import { supabase } from '../../lib/supabase';
 import { isRealSupabaseConfigured } from '../../lib/supabaseService';
 import { formatPrice, isValidMobile, isValidPincode } from '../../lib/utils';
 import { SERVICEABLE_STATES } from '../../lib/constants';
-import { Lock, ShieldCheck, ArrowLeft, TreeDeciduous } from 'lucide-react';
+import { Lock, ShieldCheck, ArrowLeft, TreeDeciduous, User } from 'lucide-react';
 
 export default function AdoptionCheckoutPage() {
   const [searchParams] = useSearchParams();
@@ -15,6 +17,9 @@ export default function AdoptionCheckoutPage() {
   const treeIdParam = searchParams.get('tree') || 'KV-001';
 
   const { trees, pricingConfig, adoptTree, addOrder } = useOrchardStore();
+  const { user, profile } = useAuthStore();
+
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   const tree = trees.find((t) => t.tree_id === treeIdParam) || trees[0];
   const adoptionFee = tree.adoption_fee || pricingConfig.price;
@@ -29,6 +34,17 @@ export default function AdoptionCheckoutPage() {
     state: 'Gujarat',
     pincode: '',
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        email: prev.email || user.email || '',
+        adopterName: prev.adopterName || (profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : ''),
+        phone: prev.phone || profile?.phone || '',
+      }));
+    }
+  }, [user, profile]);
 
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -150,89 +166,124 @@ export default function AdoptionCheckoutPage() {
           <form onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-12 gap-10 max-w-content mx-auto">
             {/* Form Left */}
             <div className="lg:col-span-7 space-y-6">
-              <div className="bg-white p-6 md:p-8 rounded-softer shadow-card border border-charcoal/10 space-y-6">
-                <h3 className="font-display text-2xl text-charcoal border-b border-charcoal/10 pb-4">
-                  Adopter Details
-                </h3>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Input
-                    label="Adopter Full Name"
-                    name="adopterName"
-                    required
-                    value={formData.adopterName}
-                    onChange={handleInputChange}
-                    placeholder="E.g. Rajesh Patel"
-                  />
-                  <Input
-                    label="Mobile Number (WhatsApp updates)"
-                    name="phone"
-                    required
-                    maxLength={10}
-                    value={formData.phone}
-                    onChange={handleInputChange}
-                    placeholder="10-digit mobile"
-                  />
+              {!user ? (
+                <div className="bg-white p-8 md:p-10 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6">
+                  <div className="w-16 h-16 rounded-full bg-soft-sage/50 text-orchard-green flex items-center justify-center mx-auto">
+                    <User className="w-8 h-8 text-orchard-green" />
+                  </div>
+                  <div className="space-y-2">
+                    <Badge variant="gold">Customer Account Required</Badge>
+                    <h2 className="font-display text-3xl text-charcoal">Sign In to Complete Tree Adoption</h2>
+                    <p className="font-body text-sm text-charcoal/70 max-w-md mx-auto leading-relaxed">
+                      Guests must log in or create an account before filling out adoption details and delivery addresses. Your account connects you directly with your numbered tree, provides weekly orchard video updates, and coordinates your seasonal harvest delivery.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Button
+                      type="button"
+                      onClick={() => setIsAuthOpen(true)}
+                      variant="gold"
+                      size="lg"
+                      className="w-full sm:w-auto shadow-md"
+                    >
+                      Sign In / Create Account
+                    </Button>
+                    <Button
+                      type="button"
+                      href="/adopt-a-tree"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                    >
+                      Back to Tree Selection
+                    </Button>
+                  </div>
                 </div>
+              ) : (
+                <div className="bg-white p-6 md:p-8 rounded-softer shadow-card border border-charcoal/10 space-y-6">
+                  <h3 className="font-display text-2xl text-charcoal border-b border-charcoal/10 pb-4">
+                    Adopter Details
+                  </h3>
 
-                <Input
-                  label="Email Address (Weekly photo reports)"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="name@example.com"
-                />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Adopter Full Name"
+                      name="adopterName"
+                      required
+                      value={formData.adopterName}
+                      onChange={handleInputChange}
+                      placeholder="E.g. Rajesh Patel"
+                    />
+                    <Input
+                      label="Mobile Number (WhatsApp updates)"
+                      name="phone"
+                      required
+                      maxLength={10}
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      placeholder="10-digit mobile"
+                    />
+                  </div>
 
-                <Input
-                  label="Name to Engrave on Tree Plaque (Optional)"
-                  name="plaqueName"
-                  value={formData.plaqueName}
-                  onChange={handleInputChange}
-                  hint="Leave blank to use Adopter Full Name"
-                  placeholder="E.g. The Patel Family Tree"
-                />
-
-                <h4 className="font-display text-xl text-charcoal pt-4 border-t border-charcoal/10">
-                  Anticipated Harvest Delivery Address
-                </h4>
-
-                <Input
-                  label="Street Address / Flat No."
-                  name="address1"
-                  required
-                  value={formData.address1}
-                  onChange={handleInputChange}
-                  placeholder="Address where harvest should be delivered"
-                />
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <Input
-                    label="City"
-                    name="city"
-                    required
-                    value={formData.city}
+                    label="Email Address (Weekly photo reports)"
+                    name="email"
+                    type="email"
+                    value={formData.email}
                     onChange={handleInputChange}
-                    placeholder="City"
+                    placeholder="name@example.com"
                   />
-                  <Select
-                    label="State"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    options={SERVICEABLE_STATES.map((s) => ({ value: s, label: s }))}
-                  />
+
                   <Input
-                    label="PIN Code"
-                    name="pincode"
-                    required
-                    maxLength={6}
-                    value={formData.pincode}
+                    label="Name to Engrave on Tree Plaque (Optional)"
+                    name="plaqueName"
+                    value={formData.plaqueName}
                     onChange={handleInputChange}
-                    placeholder="395007"
+                    hint="Leave blank to use Adopter Full Name"
+                    placeholder="E.g. The Patel Family Tree"
                   />
+
+                  <h4 className="font-display text-xl text-charcoal pt-4 border-t border-charcoal/10">
+                    Anticipated Harvest Delivery Address
+                  </h4>
+
+                  <Input
+                    label="Street Address / Flat No."
+                    name="address1"
+                    required
+                    value={formData.address1}
+                    onChange={handleInputChange}
+                    placeholder="Address where harvest should be delivered"
+                  />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Input
+                      label="City"
+                      name="city"
+                      required
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      placeholder="City"
+                    />
+                    <Select
+                      label="State"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      options={SERVICEABLE_STATES.map((s) => ({ value: s, label: s }))}
+                    />
+                    <Input
+                      label="PIN Code"
+                      name="pincode"
+                      required
+                      maxLength={6}
+                      value={formData.pincode}
+                      onChange={handleInputChange}
+                      placeholder="395007"
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Summary Right */}
@@ -304,16 +355,30 @@ export default function AdoptionCheckoutPage() {
                     </span>
                   </label>
 
-                  <Button
-                    type="submit"
-                    variant="primary"
-                    size="lg"
-                    fullWidth
-                    isLoading={isProcessing}
-                    disabled={isProcessing}
-                  >
-                    Confirm & Adopt Tree {tree.tree_id}
-                  </Button>
+                  {!user ? (
+                    <Button
+                      type="button"
+                      onClick={() => setIsAuthOpen(true)}
+                      variant="gold"
+                      size="lg"
+                      fullWidth
+                      className="shadow-md"
+                    >
+                      Sign In to Adopt Tree {tree.tree_id}
+                    </Button>
+                  ) : (
+                    <Button
+                      type="submit"
+                      variant="gold"
+                      size="lg"
+                      fullWidth
+                      className="shadow-md"
+                      isLoading={isProcessing}
+                      disabled={isProcessing}
+                    >
+                      Confirm & Adopt Tree {tree.tree_id}
+                    </Button>
+                  )}
                 </div>
 
                 <div className="pt-4 border-t border-charcoal/10 flex items-center justify-center gap-2 text-xs font-body text-charcoal/50">
@@ -325,6 +390,8 @@ export default function AdoptionCheckoutPage() {
           </form>
         </Container>
       </div>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </>
   );
 }

@@ -80,7 +80,7 @@ export default function HomePage() {
               “{BRAND_PHRASES.summerWaiting}”
             </p>
             <div className="pt-2">
-              <Button href="/shop" variant="primary">
+              <Button href="/shop" variant="gold" className="shadow-md">
                 View Seasonal Harvest
               </Button>
             </div>
@@ -222,7 +222,7 @@ export default function HomePage() {
               </div>
             </div>
             <div className="flex flex-wrap gap-4 pt-4">
-              <Button href="/adopt-a-tree" variant="primary">
+              <Button href="/adopt-a-tree" variant="gold" className="shadow-md">
                 Select Your Tree
               </Button>
               <Button href="/adopt-a-tree/how-it-works" variant="ghost">
@@ -323,7 +323,7 @@ export default function HomePage() {
               </p>
             </div>
             <div className="pt-6">
-              <Button href="/visit#visit-form" variant="primary">
+              <Button href="/visit#visit-form" variant="gold" className="shadow-md">
                 Plan Your Visit
               </Button>
             </div>

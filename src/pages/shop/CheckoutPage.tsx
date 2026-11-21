@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Container, Button, Input, Select, Badge } from '../../components/ui';
 import { SEO } from '../../components/ui/SEO';
+import { AuthModal } from '../../components/auth/AuthModal';
 import { useCartStore } from '../../stores/cartStore';
 import { useAuthStore } from '../../stores/authStore';
 import { useOrchardStore } from '../../stores/orchardStore';
@@ -9,13 +10,15 @@ import { supabase } from '../../lib/supabase';
 import { isRealSupabaseConfigured } from '../../lib/supabaseService';
 import { formatPrice, generateOrderNumber, isValidMobile, isValidPincode } from '../../lib/utils';
 import { SERVICEABLE_STATES } from '../../lib/constants';
-import { Lock, ShieldCheck, ArrowRight, Truck } from 'lucide-react';
+import { Lock, ShieldCheck, ArrowRight, Truck, User } from 'lucide-react';
 
 export default function CheckoutPage() {
   const navigate = useNavigate();
   const { lines, subtotal, totalItems, clearCart } = useCartStore();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { addOrder, adjustProductStock } = useOrchardStore();
+
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
 
   const [formData, setFormData] = useState({
     fullName: '',
@@ -28,6 +31,17 @@ export default function CheckoutPage() {
     pincode: '',
     notes: '',
   });
+
+  useEffect(() => {
+    if (user) {
+      setFormData((prev) => ({
+        ...prev,
+        email: prev.email || user.email || '',
+        fullName: prev.fullName || (profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : ''),
+        phone: prev.phone || profile?.phone || '',
+      }));
+    }
+  }, [user, profile]);
 
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -164,99 +178,134 @@ export default function CheckoutPage() {
           <form onSubmit={handlePayment} className="grid grid-cols-1 lg:grid-cols-12 gap-10 max-w-content mx-auto">
             {/* Delivery Details Left */}
             <div className="lg:col-span-7 space-y-6">
-              <div className="bg-white p-6 md:p-8 rounded-softer shadow-card border border-charcoal/10 space-y-6">
-                <div className="flex items-center justify-between border-b border-charcoal/10 pb-4">
-                  <h3 className="font-display text-2xl text-charcoal">Delivery Address</h3>
-                  <span className="font-body text-xs text-charcoal/50">All fields required</span>
+              {!user ? (
+                <div className="bg-white p-8 md:p-10 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6">
+                  <div className="w-16 h-16 rounded-full bg-soft-sage/50 text-orchard-green flex items-center justify-center mx-auto">
+                    <User className="w-8 h-8 text-orchard-green" />
+                  </div>
+                  <div className="space-y-2">
+                    <Badge variant="gold">Customer Account Required</Badge>
+                    <h2 className="font-display text-3xl text-charcoal">Sign In to Enter Delivery Address</h2>
+                    <p className="font-body text-sm text-charcoal/70 max-w-md mx-auto leading-relaxed">
+                      Please log in or create your customer account to complete your seasonal harvest order. Your account lets you track crate dispatch, receive harvesting video updates, and securely manage your delivery coordinates.
+                    </p>
+                  </div>
+                  <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                    <Button
+                      type="button"
+                      onClick={() => setIsAuthOpen(true)}
+                      variant="gold"
+                      size="lg"
+                      className="w-full sm:w-auto shadow-md"
+                    >
+                      Sign In / Create Account
+                    </Button>
+                    <Button
+                      type="button"
+                      href="/cart"
+                      variant="ghost"
+                      size="sm"
+                      className="w-full sm:w-auto"
+                    >
+                      Return to Basket
+                    </Button>
+                  </div>
                 </div>
+              ) : (
+                <div className="bg-white p-6 md:p-8 rounded-softer shadow-card border border-charcoal/10 space-y-6">
+                  <div className="flex items-center justify-between border-b border-charcoal/10 pb-4">
+                    <h3 className="font-display text-2xl text-charcoal">Delivery Address</h3>
+                    <span className="font-body text-xs text-charcoal/50">All fields required</span>
+                  </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Input
+                      label="Full Name"
+                      name="fullName"
+                      required
+                      value={formData.fullName}
+                      onChange={handleInputChange}
+                      placeholder="E.g. Jayesh Patel"
+                    />
+                    <Input
+                      label="Mobile Number (for Courier & OTP)"
+                      name="phone"
+                      required
+                      maxLength={10}
+                      value={formData.phone}
+                      onChange={handleInputChange}
+                      placeholder="10-digit mobile"
+                    />
+                  </div>
+
                   <Input
-                    label="Full Name"
-                    name="fullName"
-                    required
-                    value={formData.fullName}
+                    label="Email Address (for order receipts & dispatch tracking)"
+                    name="email"
+                    type="email"
+                    value={formData.email}
                     onChange={handleInputChange}
-                    placeholder="E.g. Jayesh Patel"
+                    placeholder="name@example.com"
                   />
+
                   <Input
-                    label="Mobile Number (for Courier & OTP)"
-                    name="phone"
+                    label="Street Address / House No. / Building"
+                    name="address1"
                     required
-                    maxLength={10}
-                    value={formData.phone}
+                    value={formData.address1}
                     onChange={handleInputChange}
-                    placeholder="10-digit mobile"
+                    placeholder="House/Apartment, Street name"
                   />
+
+                  <Input
+                    label="Apartment, Suite, Unit, Landmark (Optional)"
+                    name="address2"
+                    value={formData.address2}
+                    onChange={handleInputChange}
+                    placeholder="Near landmark, sector, floor"
+                  />
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                    <Input
+                      label="City"
+                      name="city"
+                      required
+                      value={formData.city}
+                      onChange={handleInputChange}
+                      placeholder="E.g. Surat, Mumbai"
+                    />
+                    <Select
+                      label="State"
+                      name="state"
+                      value={formData.state}
+                      onChange={handleInputChange}
+                      options={SERVICEABLE_STATES.map((s) => ({ value: s, label: s }))}
+                    />
+                    <Input
+                      label="PIN Code"
+                      name="pincode"
+                      required
+                      maxLength={6}
+                      value={formData.pincode}
+                      onChange={handleInputChange}
+                      placeholder="395007"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-body font-medium text-charcoal">
+                      Delivery Instructions / Gift Note (Optional)
+                    </label>
+                    <textarea
+                      name="notes"
+                      value={formData.notes}
+                      onChange={handleInputChange}
+                      rows={2}
+                      placeholder="E.g. Please ring doorbell twice or leave with security."
+                      className="w-full px-3 py-2 text-xs font-body rounded-soft border border-charcoal/20 focus:outline-none focus:border-orchard-green resize-none"
+                    />
+                  </div>
                 </div>
-
-                <Input
-                  label="Email Address (for order receipts & dispatch tracking)"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleInputChange}
-                  placeholder="name@example.com"
-                />
-
-                <Input
-                  label="Street Address / House No. / Building"
-                  name="address1"
-                  required
-                  value={formData.address1}
-                  onChange={handleInputChange}
-                  placeholder="House/Apartment, Street name"
-                />
-
-                <Input
-                  label="Apartment, Suite, Unit, Landmark (Optional)"
-                  name="address2"
-                  value={formData.address2}
-                  onChange={handleInputChange}
-                  placeholder="Near landmark, sector, floor"
-                />
-
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <Input
-                    label="City"
-                    name="city"
-                    required
-                    value={formData.city}
-                    onChange={handleInputChange}
-                    placeholder="E.g. Surat, Mumbai"
-                  />
-                  <Select
-                    label="State"
-                    name="state"
-                    value={formData.state}
-                    onChange={handleInputChange}
-                    options={SERVICEABLE_STATES.map((s) => ({ value: s, label: s }))}
-                  />
-                  <Input
-                    label="PIN Code"
-                    name="pincode"
-                    required
-                    maxLength={6}
-                    value={formData.pincode}
-                    onChange={handleInputChange}
-                    placeholder="395007"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-xs font-body font-medium text-charcoal">
-                    Delivery Instructions / Gift Note (Optional)
-                  </label>
-                  <textarea
-                    name="notes"
-                    value={formData.notes}
-                    onChange={handleInputChange}
-                    rows={2}
-                    placeholder="E.g. Please ring doorbell twice or leave with security."
-                    className="w-full px-3 py-2 text-xs font-body rounded-soft border border-charcoal/20 focus:outline-none focus:border-orchard-green resize-none"
-                  />
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Order Summary Right */}
@@ -323,16 +372,30 @@ export default function CheckoutPage() {
                 </label>
 
                 {/* Payment Submit Button */}
-                <Button
-                  type="submit"
-                  variant="primary"
-                  size="lg"
-                  fullWidth
-                  isLoading={isProcessing}
-                  disabled={isProcessing}
-                >
-                  Pay {formatPrice(orderTotal)} & Place Order
-                </Button>
+                {!user ? (
+                  <Button
+                    type="button"
+                    onClick={() => setIsAuthOpen(true)}
+                    variant="gold"
+                    size="lg"
+                    fullWidth
+                    className="shadow-md"
+                  >
+                    Sign In to Complete Order
+                  </Button>
+                ) : (
+                  <Button
+                    type="submit"
+                    variant="gold"
+                    size="lg"
+                    fullWidth
+                    className="shadow-md"
+                    isLoading={isProcessing}
+                    disabled={isProcessing}
+                  >
+                    Pay {formatPrice(orderTotal)} & Place Order
+                  </Button>
+                )}
 
                 <div className="pt-4 border-t border-charcoal/10 flex items-center justify-center gap-2 text-xs font-body text-charcoal/50">
                   <Lock className="w-3.5 h-3.5 text-orchard-green" />
@@ -343,6 +406,8 @@ export default function CheckoutPage() {
           </form>
         </Container>
       </div>
+
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </>
   );
 }

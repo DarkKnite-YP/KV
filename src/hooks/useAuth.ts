@@ -1,6 +1,8 @@
 import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuthStore } from '../stores/authStore';
+import { useCartStore } from '../stores/cartStore';
+import { useOrchardStore } from '../stores/orchardStore';
 import type { Profile } from '../types';
 
 export function useAuth() {
@@ -32,18 +34,30 @@ export function useAuth() {
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
         fetchProfile(session.user.id);
       } else {
-        reset();
+        wipeUserDataOnLogout();
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  function wipeUserDataOnLogout() {
+    reset();
+    useCartStore.getState().clearCart();
+    useOrchardStore.setState({ orders: [], visits: [] });
+    try {
+      localStorage.removeItem('cart-storage');
+      sessionStorage.clear();
+    } catch (e) {
+      // ignore storage access issues
+    }
+  }
 
   async function fetchProfile(userId: string) {
     try {
@@ -63,8 +77,12 @@ export function useAuth() {
   }
 
   async function signOut() {
-    await supabase.auth.signOut();
-    reset();
+    try {
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.error('Sign out error:', err);
+    }
+    wipeUserDataOnLogout();
   }
 
   return {

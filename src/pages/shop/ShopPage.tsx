@@ -88,9 +88,10 @@ export default function ShopPage() {
                           stock_quantity: product.stock_quantity,
                         })
                       }
-                      variant="primary"
+                      variant="gold"
                       size="sm"
                       fullWidth
+                      className="shadow-sm"
                     >
                       Add to Basket
                     </Button>
@@ -179,7 +180,7 @@ export default function ShopPage() {
             Instead of buying by the box, select your own numbered tree in our Surat grove. Receive a guaranteed minimum harvest of 25 kg, all surplus fruit, and weekly video dispatches throughout the season.
           </p>
           <div className="pt-2">
-            <Button href="/adopt-a-tree" variant="primary">
+            <Button href="/adopt-a-tree" variant="gold" className="shadow-md">
               Learn About Tree Adoption
             </Button>
           </div>

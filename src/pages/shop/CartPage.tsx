@@ -180,9 +180,10 @@ export default function CartPage() {
                 <div className="pt-2 space-y-3">
                   <Button
                     onClick={() => navigate('/checkout')}
-                    variant="primary"
+                    variant="gold"
                     size="lg"
                     fullWidth
+                    className="shadow-md"
                   >
                     Proceed to Checkout <ArrowRight className="w-4 h-4 ml-1" />
                   </Button>

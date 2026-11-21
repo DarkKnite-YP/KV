@@ -2,7 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'gold';
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'gold' | 'outline-white';
   size?: 'sm' | 'md' | 'lg';
   href?: string;
   isLoading?: boolean;
@@ -23,7 +23,9 @@ const variants = {
   ghost:
     'text-orchard-green hover:bg-soft-sage/50 active:bg-soft-sage/70',
   gold:
-    'bg-dawn-gold text-white hover:bg-dawn-gold/90 active:bg-dawn-gold/80',
+    'bg-[#D4AF37] text-deep-forest font-bold border border-amber-300/60 shadow-md hover:bg-[#C59B27] hover:text-deep-forest hover:shadow-lg active:bg-[#B3891E]',
+  'outline-white':
+    'border-2 border-white text-white bg-white/10 backdrop-blur-sm hover:bg-white hover:text-deep-forest active:bg-white/90 font-medium',
 };
 
 const sizes = {

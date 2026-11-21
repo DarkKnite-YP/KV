@@ -234,7 +234,7 @@ export default function VisitPage() {
                   <p className="text-sm text-red-600 font-body">{errorMsg}</p>
                 )}
 
-                <Button type="submit" variant="primary" size="lg" fullWidth>
+                <Button type="submit" variant="gold" size="lg" fullWidth className="shadow-md">
                   Submit Visit Request
                 </Button>
               </form>

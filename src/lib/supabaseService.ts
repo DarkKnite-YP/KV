@@ -25,6 +25,13 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
       .select('*')
       .order('sort_order', { ascending: true });
 
+    // Auto-seed if database is unseeded or empty
+    if (!prodErr && (!dbProducts || dbProducts.length === 0)) {
+      console.log('Orchard products empty in Supabase cloud; auto-seeding initial database...');
+      await seedDatabaseToSupabase();
+      return { success: true, message: 'Database was empty; automatically seeded and synced from cloud!' };
+    }
+
     if (!prodErr && dbProducts && dbProducts.length > 0) {
       // Map to store products
       useOrchardStore.setState({ products: dbProducts as Product[] });

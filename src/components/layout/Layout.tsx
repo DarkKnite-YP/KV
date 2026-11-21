@@ -5,6 +5,8 @@ import { Footer } from './Footer';
 import { ScrollToTop } from './ScrollToTop';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
+import { useCartStore } from '../../stores/cartStore';
+import { useOrchardStore } from '../../stores/orchardStore';
 import { syncFromSupabase, isRealSupabaseConfigured } from '../../lib/supabaseService';
 
 export function Layout() {
@@ -17,6 +19,15 @@ export function Layout() {
     if (isRealSupabaseConfigured()) {
       syncFromSupabase();
     }
+
+    // Auto-sync when window re-gains focus or visibility
+    const handleReFocus = () => {
+      if (document.visibilityState === 'visible' && isRealSupabaseConfigured()) {
+        syncFromSupabase();
+      }
+    };
+    window.addEventListener('visibilitychange', handleReFocus);
+    window.addEventListener('focus', handleReFocus);
 
     // 2. Auth State Listener
     const { data: authListener } = supabase.auth.onAuthStateChange(
@@ -38,11 +49,19 @@ export function Layout() {
           });
         } else {
           setProfile(null);
+          // Complete client-end wipe when logged out
+          useCartStore.getState().clearCart();
+          useOrchardStore.setState({ orders: [], visits: [] });
+          try {
+            localStorage.removeItem('cart-storage');
+          } catch (e) {}
         }
       }
     );
 
     return () => {
+      window.removeEventListener('visibilitychange', handleReFocus);
+      window.removeEventListener('focus', handleReFocus);
       authListener?.subscription.unsubscribe();
     };
   }, []);

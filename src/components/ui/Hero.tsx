@@ -97,8 +97,9 @@ export function Hero({
             {primaryCTA && (
               <Button
                 href={primaryCTA.href}
-                variant="primary"
+                variant="gold"
                 size="lg"
+                className="shadow-elevated hover:scale-[1.02] transition-transform"
               >
                 {primaryCTA.label}
               </Button>
@@ -106,9 +107,9 @@ export function Hero({
             {secondaryCTA && (
               <Button
                 href={secondaryCTA.href}
-                variant="outline"
+                variant="outline-white"
                 size="lg"
-                className="border-white text-white hover:bg-white hover:text-orchard-green"
+                className="shadow-sm hover:scale-[1.02] transition-transform"
               >
                 {secondaryCTA.label}
               </Button>
