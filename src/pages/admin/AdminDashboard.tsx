@@ -252,18 +252,20 @@ export default function AdminDashboard() {
   }
 
   function exportOrdersCSV() {
-    const headers = ['Order Number', 'Date', 'Customer Name', 'Phone', 'Items', 'Total (INR)', 'Status', 'Payment', 'Courier', 'Tracking'];
+    const headers = ['Order Number', 'Date', 'Customer Name', 'Phone', 'Type of Collection', 'Quantity', 'Total (INR)', 'Status', 'Payment', 'Courier', 'Tracking', 'Customer Notes'];
     const rows = orders.map((o) => [
       o.order_number,
       o.order_date.split('T')[0],
       `"${o.customer_name}"`,
       `"${o.phone}"`,
-      `"${o.items_summary}"`,
+      `"${o.items_summary || o.collection_type || 'Gir Kesar'}"`,
+      o.quantity || o.items_count || 1,
       o.total_amount / 100,
       o.status,
       o.payment_status,
       o.courier_name || 'N/A',
       o.tracking_number || 'N/A',
+      `"${o.notes || ''}"`,
     ]);
     const csvContent = [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
     downloadBlob(csvContent, `kesari_van_orders_${Date.now()}.csv`, 'text/csv');
@@ -1203,7 +1205,8 @@ export default function AdminDashboard() {
                         <th className="py-3 px-4">Order ID</th>
                         <th className="py-3 px-4">Date</th>
                         <th className="py-3 px-4">Customer</th>
-                        <th className="py-3 px-4">Items Summary</th>
+                        <th className="py-3 px-4">Type of Collection</th>
+                        <th className="py-3 px-4">Quantity</th>
                         <th className="py-3 px-4">Total</th>
                         <th className="py-3 px-4">Status</th>
                         <th className="py-3 px-4 text-right">Actions</th>
@@ -1218,7 +1221,17 @@ export default function AdminDashboard() {
                             <p className="font-semibold text-charcoal">{order.customer_name}</p>
                             <p className="text-[11px] text-charcoal/50">{order.phone}</p>
                           </td>
-                          <td className="py-3 px-4 text-charcoal/70 truncate max-w-xs">{order.items_summary}</td>
+                          <td className="py-3 px-4">
+                            <span className="font-semibold text-charcoal block">{order.items_summary || order.collection_type || 'Gir Kesar Mangoes'}</span>
+                            {order.notes && order.notes !== order.items_summary && (
+                              <span className="text-[11px] text-charcoal/50 italic block mt-0.5 max-w-[200px] truncate" title={order.notes}>
+                                Note: {order.notes}
+                              </span>
+                            )}
+                          </td>
+                          <td className="py-3 px-4 font-semibold text-charcoal">
+                            {order.quantity || order.items_count || 1} box{(order.quantity || order.items_count || 1) > 1 ? 'es' : ''}
+                          </td>
                           <td className="py-3 px-4 font-bold text-orchard-green">{formatPrice(order.total_amount)}</td>
                           <td className="py-3 px-4">
                             <Badge
@@ -1981,8 +1994,12 @@ export default function AdminDashboard() {
 
               <div className="space-y-1.5 border-y border-charcoal/10 py-3">
                 <div className="flex justify-between">
-                  <span className="text-charcoal/60">Items:</span>
-                  <span className="font-semibold text-charcoal">{selectedOrderForView.items_summary}</span>
+                  <span className="text-charcoal/60">Type of Collection:</span>
+                  <span className="font-semibold text-charcoal">{selectedOrderForView.items_summary || selectedOrderForView.collection_type || 'Gir Kesar Mangoes'}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-charcoal/60">Quantity:</span>
+                  <span className="font-semibold text-charcoal">{selectedOrderForView.quantity || selectedOrderForView.items_count || 1} box(es)</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-charcoal/60">Total Paid:</span>

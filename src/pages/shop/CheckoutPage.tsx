@@ -97,8 +97,13 @@ export default function CheckoutPage() {
 
     setIsProcessing(true);
 
-    setTimeout(() => {
+    setTimeout(async () => {
       const orderNumber = generateOrderNumber();
+      const collectionType = lines.map((l) => `${l.quantity}x ${l.product.name}`).join(', ');
+      const totalQty = totalItems();
+      const formattedNotes = formData.notes?.trim()
+        ? `Items: ${collectionType} | Notes: ${formData.notes.trim()}`
+        : `Items: ${collectionType}`;
 
       // Record real order in orchardStore
       addOrder({
@@ -107,8 +112,10 @@ export default function CheckoutPage() {
         phone: formData.phone,
         email: formData.email || null,
         order_date: new Date().toISOString(),
-        items_summary: lines.map((l) => `${l.quantity}x ${l.product.name}`).join(', '),
-        items_count: totalItems(),
+        items_summary: collectionType,
+        items_count: totalQty,
+        collection_type: collectionType,
+        quantity: totalQty,
         subtotal: subtotal(),
         shipping_amount: estimatedShipping,
         total_amount: orderTotal,
@@ -120,7 +127,7 @@ export default function CheckoutPage() {
           state: formData.state,
           pincode: formData.pincode,
         },
-        notes: formData.notes || undefined,
+        notes: formattedNotes,
       });
 
       // Update product inventory accordingly
@@ -129,28 +136,70 @@ export default function CheckoutPage() {
         adjustProductStock(l.product.id, remaining, `Order ${orderNumber} placed`);
       });
 
-      // Sync order to Supabase Cloud
+      // Sync order and order_items to Supabase Cloud
       if (isRealSupabaseConfigured()) {
-        (supabase.from('orders') as any).insert({
-          order_number: orderNumber,
-          customer_name: formData.fullName,
-          phone: formData.phone,
-          email: formData.email || null,
-          subtotal: subtotal(),
-          shipping_amount: estimatedShipping,
-          total_amount: orderTotal,
-          status: 'confirmed',
-          payment_status: 'captured',
-          delivery_address: {
-            line1: `${formData.address1}${formData.address2 ? ', ' + formData.address2 : ''}`,
-            city: formData.city,
-            state: formData.state,
-            pincode: formData.pincode,
-          },
-          notes: formData.notes || null,
-        }).then(({ error }: any) => {
-          if (error) console.warn('Supabase order insert error:', error);
-        });
+        try {
+          const orderBasePayload: any = {
+            order_number: orderNumber,
+            user_id: user?.id || null,
+            customer_name: formData.fullName,
+            phone: formData.phone,
+            email: formData.email || null,
+            subtotal: subtotal(),
+            shipping_amount: estimatedShipping,
+            total_amount: orderTotal,
+            status: 'confirmed',
+            payment_status: 'captured',
+            delivery_address: {
+              line1: `${formData.address1}${formData.address2 ? ', ' + formData.address2 : ''}`,
+              city: formData.city,
+              state: formData.state,
+              pincode: formData.pincode,
+            },
+            notes: formattedNotes,
+          };
+
+          // 1. Insert Order (try with collection_type & quantity, fallback to base)
+          let createdOrderId: string | null = null;
+          const { data: orderWithCols, error: colsErr } = await (supabase.from('orders') as any)
+            .insert({
+              ...orderBasePayload,
+              collection_type: collectionType,
+              quantity: totalQty,
+            })
+            .select('id')
+            .single();
+
+          if (!colsErr && orderWithCols?.id) {
+            createdOrderId = orderWithCols.id;
+          } else {
+            const { data: fallbackOrder, error: fallbackErr } = await (supabase.from('orders') as any)
+              .insert(orderBasePayload)
+              .select('id')
+              .single();
+            if (!fallbackErr && fallbackOrder?.id) {
+              createdOrderId = fallbackOrder.id;
+            } else if (fallbackErr) {
+              console.warn('Supabase order insert error:', fallbackErr.message);
+            }
+          }
+
+          // 2. Populate order_items table in Supabase
+          if (createdOrderId) {
+            const orderItemsPayload = lines.map((l) => ({
+              order_id: createdOrderId,
+              product_id: l.product.id,
+              product_name: l.product.name,
+              quantity: l.quantity,
+              unit_price: l.product.price,
+              total_price: l.product.price * l.quantity,
+            }));
+            const { error: itemsErr } = await (supabase.from('order_items') as any).insert(orderItemsPayload);
+            if (itemsErr) console.warn('Supabase order_items insert warning:', itemsErr.message);
+          }
+        } catch (dbErr) {
+          console.warn('Supabase order sync error:', dbErr);
+        }
       }
 
       // Clear cart

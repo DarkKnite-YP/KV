@@ -90,10 +90,10 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
       useOrchardStore.setState({ visits: mappedVisits as any });
     }
 
-    // 6. Fetch Orders
+    // 6. Fetch Orders with order_items
     const { data: dbOrders, error: orderErr } = await supabase
       .from('orders')
-      .select('*')
+      .select('*, order_items(*)')
       .order('created_at', { ascending: false });
 
     if (!orderErr && dbOrders) {
@@ -101,11 +101,43 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
         .filter((o: any) => !o.order_number?.startsWith('TEST-PERM'))
         .map((o: any) => {
           const notes = o.notes || '';
-          let itemsSummary = 'Harvest Order';
-          if (notes.includes('Items:')) {
-            itemsSummary = notes.split('Items:')[1].trim();
-          } else if (notes) {
-            itemsSummary = notes;
+          let itemsSummary = o.collection_type || '';
+          let itemsCount = o.quantity || 1;
+          let customerNotes = notes;
+
+          // 1. If order_items are present, derive exact collection summary and quantity
+          if (o.order_items && o.order_items.length > 0) {
+            itemsSummary = o.order_items.map((i: any) => `${i.quantity}x ${i.product_name}`).join(', ');
+            itemsCount = o.order_items.reduce((sum: number, i: any) => sum + (i.quantity || 1), 0);
+            if (notes.includes('| Notes:')) {
+              customerNotes = notes.split('| Notes:')[1].trim();
+            } else if (notes.startsWith('Items:')) {
+              customerNotes = '';
+            }
+          } else if (notes.includes('Items:')) {
+            // 2. Parse Items: ... from notes
+            const afterItems = notes.split('Items:')[1];
+            if (afterItems.includes('| Notes:')) {
+              const parts = afterItems.split('| Notes:');
+              itemsSummary = parts[0].trim();
+              customerNotes = parts[1].trim();
+            } else {
+              itemsSummary = afterItems.trim();
+              customerNotes = '';
+            }
+            const matchQty = itemsSummary.match(/^(\d+)x/);
+            if (matchQty) itemsCount = parseInt(matchQty[1], 10);
+          } else if (!itemsSummary) {
+            // If notes is pure delivery instructions (like 'near pnb'), keep it in notes and do NOT use as collection name
+            if (notes.toLowerCase().includes('signature')) {
+              itemsSummary = 'Signature Harvest';
+            } else if (notes.toLowerCase().includes('golden')) {
+              itemsSummary = 'Golden Kesar';
+            } else if (notes.toLowerCase().includes('premium')) {
+              itemsSummary = 'Premium Kesar';
+            } else {
+              itemsSummary = 'Gir Kesar Mango Collection';
+            }
           }
 
           return {
@@ -116,7 +148,9 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
             email: o.email,
             order_date: o.created_at ? o.created_at.split('T')[0] : new Date().toISOString().split('T')[0],
             items_summary: itemsSummary,
-            items_count: 1,
+            items_count: itemsCount,
+            collection_type: itemsSummary,
+            quantity: itemsCount,
             subtotal: o.subtotal,
             shipping_amount: o.shipping_amount,
             total_amount: o.total_amount,
@@ -126,7 +160,7 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
             courier_name: o.courier_name,
             tracking_number: o.tracking_number,
             dispatch_date: o.dispatch_date,
-            notes: o.notes,
+            notes: customerNotes || notes,
           };
         });
       useOrchardStore.setState({ orders: mappedOrders });

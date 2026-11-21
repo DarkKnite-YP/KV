@@ -90,11 +90,17 @@ export default function AccountOrderDetailPage() {
             <h4 className="font-display text-lg text-charcoal">Purchased Collections</h4>
             <div className="flex justify-between items-center py-2 border-b border-charcoal/5">
               <div>
-                <p className="font-medium text-charcoal">{order.items_summary}</p>
-                <p className="text-xs text-charcoal/60">Quantity: {order.items_count}</p>
+                <p className="font-semibold text-charcoal">{order.items_summary}</p>
+                <p className="text-xs text-charcoal/60">Quantity: {order.items_count || order.quantity || 1} box{(order.items_count || order.quantity || 1) > 1 ? 'es' : ''}</p>
               </div>
               <span className="font-semibold text-charcoal">{formatPrice(order.subtotal)}</span>
             </div>
+            {order.notes && order.notes !== order.items_summary && (
+              <div className="p-3 bg-mango-cream/40 rounded-soft border border-charcoal/5 text-xs text-charcoal/70">
+                <strong className="text-charcoal block mb-0.5">Delivery Instructions / Customer Note:</strong>
+                <span>{order.notes}</span>
+              </div>
+            )}
             <div className="flex justify-between text-xs text-charcoal/60">
               <span>Courier Delivery</span>
               <span>{formatPrice(order.shipping_amount)}</span>

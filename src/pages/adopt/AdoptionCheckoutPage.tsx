@@ -87,6 +87,11 @@ export default function AdoptionCheckoutPage() {
         email: formData.email,
       });
 
+      const adoptionSummary = `Tree Adoption: Tree ${tree.tree_id} (${tree.variety} · ${pricingConfig.min_guarantee_kg}kg guarantee)`;
+      const formattedNotes = formData.plaqueName
+        ? `Items: ${adoptionSummary} | Plaque: "${formData.plaqueName}"`
+        : `Items: ${adoptionSummary}`;
+
       // 2. Add an order record into harvest orders store
       addOrder({
         order_number: adoptionId,
@@ -94,8 +99,10 @@ export default function AdoptionCheckoutPage() {
         phone: formData.phone,
         email: formData.email || null,
         order_date: new Date().toISOString(),
-        items_summary: `Tree Adoption: Tree ${tree.tree_id} (${tree.variety} · ${pricingConfig.min_guarantee_kg}kg guarantee)`,
+        items_summary: adoptionSummary,
         items_count: 1,
+        collection_type: 'Tree Adoption',
+        quantity: 1,
         subtotal: adoptionFee,
         shipping_amount: 0,
         total_amount: adoptionFee,
@@ -107,9 +114,7 @@ export default function AdoptionCheckoutPage() {
           state: formData.state,
           pincode: formData.pincode,
         },
-        notes: formData.plaqueName
-          ? `Plaque Engraving: "${formData.plaqueName}"`
-          : undefined,
+        notes: formattedNotes,
       });
 
       // Sync to Supabase Cloud
@@ -123,26 +128,67 @@ export default function AdoptionCheckoutPage() {
           if (error) console.warn('Supabase tree update error:', error);
         });
 
-        (supabase.from('orders') as any).insert({
-          order_number: adoptionId,
-          customer_name: formData.adopterName,
-          phone: formData.phone,
-          email: formData.email || null,
-          subtotal: adoptionFee,
-          shipping_amount: 0,
-          total_amount: adoptionFee,
-          status: 'confirmed',
-          payment_status: 'captured',
-          delivery_address: {
-            line1: formData.address1,
-            city: formData.city,
-            state: formData.state,
-            pincode: formData.pincode,
-          },
-          notes: formData.plaqueName ? `Plaque Engraving: "${formData.plaqueName}"` : null,
-        }).then(({ error }: any) => {
-          if (error) console.warn('Supabase adoption order error:', error);
-        });
+        // Insert into orders table with collection_type and quantity
+        (async () => {
+          try {
+            const basePayload: any = {
+              order_number: adoptionId,
+              user_id: user?.id || null,
+              customer_name: formData.adopterName,
+              phone: formData.phone,
+              email: formData.email || null,
+              subtotal: adoptionFee,
+              shipping_amount: 0,
+              total_amount: adoptionFee,
+              status: 'confirmed',
+              payment_status: 'captured',
+              delivery_address: {
+                line1: formData.address1,
+                city: formData.city,
+                state: formData.state,
+                pincode: formData.pincode,
+              },
+              notes: formattedNotes,
+            };
+
+            let createdOrderId: string | null = null;
+            const { data: orderWithCols, error: colsErr } = await (supabase.from('orders') as any)
+              .insert({
+                ...basePayload,
+                collection_type: 'Tree Adoption',
+                quantity: 1,
+              })
+              .select('id')
+              .single();
+
+            if (!colsErr && orderWithCols?.id) {
+              createdOrderId = orderWithCols.id;
+            } else {
+              const { data: baseOrder } = await (supabase.from('orders') as any)
+                .insert(basePayload)
+                .select('id')
+                .single();
+              if (baseOrder?.id) createdOrderId = baseOrder.id;
+            }
+
+            // Populate order_items table for adoption
+            if (createdOrderId) {
+              // Find matching or default product
+              const { data: prodData }: any = await (supabase.from('products') as any).select('id').limit(1);
+              const defaultProdId = prodData?.[0]?.id || '9c1072c7-5086-4d46-b385-673d65e7acda';
+              await (supabase.from('order_items') as any).insert({
+                order_id: createdOrderId,
+                product_id: defaultProdId,
+                product_name: `Tree Adoption: Tree ${tree.tree_id}`,
+                quantity: 1,
+                unit_price: adoptionFee,
+                total_price: adoptionFee,
+              });
+            }
+          } catch (e) {
+            console.warn('Supabase adoption order insert error:', e);
+          }
+        })();
       }
 
       setIsProcessing(false);

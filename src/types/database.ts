@@ -192,6 +192,8 @@ export interface Order {
   subtotal: number;
   shipping_amount: number;
   total_amount: number;
+  collection_type?: string | null;
+  quantity?: number;
   razorpay_order_id: string | null;
   razorpay_payment_id: string | null;
   razorpay_signature: string | null;

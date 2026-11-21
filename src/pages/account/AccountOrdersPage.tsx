@@ -43,8 +43,11 @@ export default function AccountOrdersPage() {
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-body text-sm">
                   <div>
-                    <p className="font-medium text-charcoal">{order.items_summary}</p>
-                    <p className="text-xs text-charcoal/60">Quantity: {order.items_count}</p>
+                    <p className="font-semibold text-charcoal">{order.items_summary}</p>
+                    <p className="text-xs text-charcoal/60">Quantity: {order.items_count || order.quantity || 1} box{(order.items_count || order.quantity || 1) > 1 ? 'es' : ''}</p>
+                    {order.notes && order.notes !== order.items_summary && (
+                      <p className="text-xs text-charcoal/50 italic mt-1">Delivery note: {order.notes}</p>
+                    )}
                   </div>
                   <div className="text-right">
                     <span className="font-bold text-orchard-green">{formatPrice(order.total_amount)}</span>

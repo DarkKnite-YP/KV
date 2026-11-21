@@ -84,6 +84,8 @@ export interface HarvestOrderItem {
   order_date: string;
   items_summary: string;
   items_count: number;
+  collection_type?: string;
+  quantity?: number;
   subtotal: number;
   shipping_amount: number;
   total_amount: number;
