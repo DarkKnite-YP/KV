@@ -331,15 +331,18 @@ export interface VisitRequest {
 
 export interface ContactEnquiry {
   id: string;
+  reference_number: string;
+  user_id?: string | null;
   name: string;
   phone: string;
   email: string | null;
   category: string;
   message: string;
-  reference_number: string;
+  status: 'new' | 'in_progress' | 'responded' | 'archived';
   is_read: boolean;
   admin_notes: string | null;
   created_at: string;
+  updated_at?: string;
 }
 
 export interface FAQItem {

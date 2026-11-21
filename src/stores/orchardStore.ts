@@ -50,6 +50,22 @@ export interface ActivityLog {
   created_at: string;
 }
 
+export interface ContactEnquiryItem {
+  id: string;
+  reference_number: string;
+  user_id?: string | null;
+  name: string;
+  phone: string;
+  email?: string | null;
+  category: string;
+  message: string;
+  status: 'new' | 'in_progress' | 'responded' | 'archived';
+  is_read: boolean;
+  admin_notes?: string | null;
+  created_at: string;
+  updated_at?: string;
+}
+
 export interface OrchardVisitItem {
   id: string;
   request_number: string;
@@ -129,6 +145,7 @@ interface OrchardState {
   pricingConfig: AdoptionPricingConfig;
   orders: HarvestOrderItem[];
   visits: OrchardVisitItem[];
+  enquiries: ContactEnquiryItem[];
   articles: JournalArticle[];
   packaging: PackagingItem[];
   inventoryLogs: InventoryLog[];
@@ -162,6 +179,11 @@ interface OrchardState {
   updateVisitStatus: (id: string, status: OrchardVisitItem['status'], adminNotes?: string) => void;
   cancelVisit: (id: string, reason?: string) => void;
   restoreVisit: (id: string) => void;
+
+  // Contact Enquiry Actions
+  addEnquiry: (enquiry: Omit<ContactEnquiryItem, 'id' | 'created_at' | 'updated_at'>) => string;
+  updateEnquiryStatus: (id: string, status: ContactEnquiryItem['status'], adminNotes?: string) => void;
+  deleteEnquiry: (id: string) => void;
 
   // Journal CMS Actions
   addArticle: (article: Omit<JournalArticle, 'id' | 'created_at' | 'updated_at'>) => void;
@@ -245,6 +267,9 @@ const INITIAL_ORDERS: HarvestOrderItem[] = [];
 // Initial visits (starts empty for fresh real start)
 const INITIAL_VISITS: OrchardVisitItem[] = [];
 
+// Initial contact enquiries (starts empty for fresh real start)
+const INITIAL_ENQUIRIES: ContactEnquiryItem[] = [];
+
 export const useOrchardStore = create<OrchardState>()(
   persist(
     (set, get) => ({
@@ -262,6 +287,7 @@ export const useOrchardStore = create<OrchardState>()(
       },
       orders: INITIAL_ORDERS,
       visits: INITIAL_VISITS,
+      enquiries: INITIAL_ENQUIRIES,
       articles: MOCK_JOURNAL_ARTICLES,
       packaging: INITIAL_PACKAGING,
       inventoryLogs: [],
@@ -990,6 +1016,120 @@ export const useOrchardStore = create<OrchardState>()(
         });
       },
 
+      // ─── Enquiries ───
+      addEnquiry: (newEnquiry) => {
+        const id = `enq-${Date.now()}`;
+        const enquiry: ContactEnquiryItem = {
+          ...newEnquiry,
+          id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        set((state) => ({ enquiries: [enquiry, ...state.enquiries] }));
+
+        if (isRealSupabase()) {
+          (supabase.from('contact_enquiries') as any).insert({
+            reference_number: newEnquiry.reference_number,
+            user_id: newEnquiry.user_id || null,
+            name: newEnquiry.name,
+            phone: newEnquiry.phone,
+            email: newEnquiry.email || null,
+            category: newEnquiry.category,
+            message: newEnquiry.message,
+            status: newEnquiry.status || 'new',
+            is_read: newEnquiry.is_read || false,
+            admin_notes: newEnquiry.admin_notes || null,
+          }).then(({ error }: any) => {
+            if (error) console.error('Failed to insert contact enquiry in Supabase:', error);
+          });
+        }
+
+        get().logActivity({
+          action: 'Contact Enquiry Submitted',
+          target_type: 'visit',
+          target_id: newEnquiry.reference_number,
+          description: `New customer enquiry ${newEnquiry.reference_number} submitted by ${newEnquiry.name} (${newEnquiry.category})`,
+          admin_user: newEnquiry.name,
+        });
+
+        return id;
+      },
+
+      updateEnquiryStatus: (id, status, adminNotes) => {
+        const enquiry = get().enquiries.find((e) => e.id === id || e.reference_number === id);
+        if (!enquiry) return;
+        set((state) => ({
+          enquiries: state.enquiries.map((e) =>
+            e.id === enquiry.id || e.reference_number === enquiry.reference_number
+              ? {
+                  ...e,
+                  status,
+                  is_read: status === 'responded' || status === 'archived' ? true : e.is_read,
+                  admin_notes: adminNotes !== undefined ? adminNotes : e.admin_notes,
+                  updated_at: new Date().toISOString(),
+                }
+              : e
+          ),
+        }));
+
+        if (isRealSupabase()) {
+          const payload: any = {
+            status,
+            updated_at: new Date().toISOString(),
+          };
+          if (adminNotes !== undefined) payload.admin_notes = adminNotes;
+          if (status === 'responded' || status === 'archived') payload.is_read = true;
+
+          const query = (supabase.from('contact_enquiries') as any).update(payload);
+          if (isUuid(enquiry.id)) {
+            query.eq('id', enquiry.id).then(({ error }: any) => {
+              if (error) console.error('Failed to update enquiry in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('reference_number', enquiry.reference_number).then(({ error }: any) => {
+              if (error) console.error('Failed to update enquiry in Supabase by ref:', error);
+            });
+          }
+        }
+
+        get().logActivity({
+          action: 'Enquiry Status Updated',
+          target_type: 'visit',
+          target_id: enquiry.reference_number,
+          description: `Enquiry ${enquiry.reference_number} status changed to ${status}`,
+          admin_user: 'Admin',
+        });
+      },
+
+      deleteEnquiry: (id) => {
+        const enquiry = get().enquiries.find((e) => e.id === id || e.reference_number === id);
+        if (!enquiry) return;
+        set((state) => ({
+          enquiries: state.enquiries.filter((e) => e.id !== enquiry.id && e.reference_number !== enquiry.reference_number),
+        }));
+
+        if (isRealSupabase()) {
+          const query = (supabase.from('contact_enquiries') as any).delete();
+          if (isUuid(enquiry.id)) {
+            query.eq('id', enquiry.id).then(({ error }: any) => {
+              if (error) console.error('Failed to delete enquiry in Supabase by ID:', error);
+            });
+          } else {
+            query.eq('reference_number', enquiry.reference_number).then(({ error }: any) => {
+              if (error) console.error('Failed to delete enquiry in Supabase by ref:', error);
+            });
+          }
+        }
+
+        get().logActivity({
+          action: 'Enquiry Deleted',
+          target_type: 'visit',
+          target_id: enquiry.reference_number,
+          description: `Enquiry ${enquiry.reference_number} was deleted by Admin`,
+          admin_user: 'Admin',
+        });
+      },
+
       // ─── Journal ───
       addArticle: (newArticle) => {
         const id = `art-${Date.now()}`;
@@ -1185,13 +1325,14 @@ export const useOrchardStore = create<OrchardState>()(
       },
     }),
     {
-      name: 'kesari-van-orchard-state-v4',
+      name: 'kesari-van-orchard-state-v5',
       partialize: (state) => ({
         products: state.products,
         trees: state.trees,
         pricingConfig: state.pricingConfig,
         orders: state.orders,
         visits: state.visits,
+        enquiries: state.enquiries,
         articles: state.articles,
         packaging: state.packaging,
         inventoryLogs: state.inventoryLogs,

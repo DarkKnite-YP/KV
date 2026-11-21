@@ -90,8 +90,8 @@ export default function AccountOrderDetailPage() {
             <h4 className="font-display text-lg text-charcoal">Purchased Collections</h4>
             <div className="flex justify-between items-center py-2 border-b border-charcoal/5">
               <div>
-                <p className="font-semibold text-charcoal">{order.items_summary}</p>
-                <p className="text-xs text-charcoal/60">Quantity: {order.items_count || order.quantity || 1} box{(order.items_count || order.quantity || 1) > 1 ? 'es' : ''}</p>
+                <p className="font-semibold text-charcoal">{order.collection_type || order.items_summary || 'Gir Kesar Mango Collection'}</p>
+                <p className="text-xs text-charcoal/60">Quantity: {order.quantity || order.items_count || 1} box{(order.quantity || order.items_count || 1) > 1 ? 'es' : ''}</p>
               </div>
               <span className="font-semibold text-charcoal">{formatPrice(order.subtotal)}</span>
             </div>

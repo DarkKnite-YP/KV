@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
-import { Hero, Section, SectionHeading, Button, Input, Textarea, Select, Badge } from '../components/ui';
+import React, { useState, useEffect } from 'react';
+import { Hero, Section, Button, Input, Textarea, Select, Badge } from '../components/ui';
 import { SEO } from '../components/ui/SEO';
-import { BRAND, BRAND_PHRASES, CONTACT_CATEGORIES } from '../lib/constants';
+import { CONTACT_CATEGORIES } from '../lib/constants';
 import { isValidMobile } from '../lib/utils';
-import { MapPin, Phone, Mail, CheckCircle2, MessageCircle } from 'lucide-react';
+import { MapPin, Mail, CheckCircle2, MessageCircle, User, ShieldCheck, Loader2 } from 'lucide-react';
+import { useAuthStore } from '../stores/authStore';
+import { useOrchardStore } from '../stores/orchardStore';
+import { AuthModal } from '../components/auth/AuthModal';
+import { supabase } from '../lib/supabase';
+import { isRealSupabaseConfigured } from '../lib/supabaseService';
 
 export default function ContactPage() {
+  const { user, profile } = useAuthStore();
+  const { addEnquiry } = useOrchardStore();
+
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
@@ -14,19 +25,40 @@ export default function ContactPage() {
     message: '',
   });
 
+  // Pre-fill profile & account details once logged in
+  useEffect(() => {
+    if (user) {
+      const fullName = profile
+        ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim()
+        : (user.user_metadata?.full_name || '');
+
+      setFormData((prev) => ({
+        ...prev,
+        name: prev.name || fullName,
+        email: user.email || prev.email || '',
+        phone: prev.phone || profile?.phone || user.user_metadata?.phone || '',
+      }));
+    }
+  }, [user, profile]);
+
   const [refNumber, setRefNumber] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErrorMsg('');
 
+    if (!user) {
+      setIsAuthOpen(true);
+      return;
+    }
+
     if (!formData.name.trim()) {
-      setErrorMsg('Please enter your name.');
+      setErrorMsg('Please enter your full name.');
       return;
     }
     if (!isValidMobile(formData.phone)) {
-      setErrorMsg('Please enter a valid 10-digit mobile number.');
+      setErrorMsg('Please enter a valid 10-digit Indian mobile number.');
       return;
     }
     if (!formData.message.trim()) {
@@ -34,8 +66,50 @@ export default function ContactPage() {
       return;
     }
 
-    const random = Math.floor(1000 + Math.random() * 9000);
-    setRefNumber(`KV-REQ-${random}`);
+    setIsSubmitting(true);
+
+    try {
+      const generatedRef = `KV-REQ-${Math.floor(100000 + Math.random() * 900000)}`;
+
+      // 1. Sync to Supabase cloud if configured
+      if (isRealSupabaseConfigured()) {
+        const { error: dbErr } = await (supabase.from('contact_enquiries') as any).insert({
+          reference_number: generatedRef,
+          user_id: user.id,
+          name: formData.name.trim(),
+          phone: formData.phone.trim(),
+          email: user.email || formData.email.trim(),
+          category: formData.category,
+          message: formData.message.trim(),
+          status: 'new',
+          is_read: false,
+        });
+
+        if (dbErr) {
+          console.warn('Note: Supabase enquiry insert response:', dbErr.message);
+        }
+      }
+
+      // 2. Add to local/hydrated store for instantaneous admin dashboard visibility
+      addEnquiry({
+        reference_number: generatedRef,
+        user_id: user.id,
+        name: formData.name.trim(),
+        phone: formData.phone.trim(),
+        email: user.email || formData.email.trim(),
+        category: formData.category,
+        message: formData.message.trim(),
+        status: 'new',
+        is_read: false,
+      });
+
+      setRefNumber(generatedRef);
+    } catch (err: any) {
+      console.error('Error submitting enquiry:', err);
+      setErrorMsg(err.message || 'Failed to submit enquiry. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -66,18 +140,69 @@ export default function ContactPage() {
             </p>
 
             {refNumber ? (
-              <div className="bg-white p-8 rounded-soft text-center space-y-4 border border-charcoal/10">
+              <div className="bg-white p-8 rounded-soft text-center space-y-4 border border-charcoal/10 animate-fade-in">
                 <CheckCircle2 className="w-12 h-12 text-orchard-green mx-auto" />
                 <h4 className="font-display text-2xl text-charcoal">Enquiry Received</h4>
                 <p className="font-body text-sm text-charcoal/70 leading-relaxed max-w-sm mx-auto">
-                  Thank you, {formData.name}. Your enquiry reference is <strong>{refNumber}</strong>. We will reply to your WhatsApp / email within 24 hours.
+                  Thank you, <strong>{formData.name}</strong>. Your enquiry reference is <strong>{refNumber}</strong>. We will reply to your WhatsApp / email within 24 hours.
                 </p>
-                <Button onClick={() => setRefNumber(null)} variant="outline" size="sm">
-                  Send Another Message
-                </Button>
+                <div className="pt-2">
+                  <Button
+                    onClick={() => {
+                      setRefNumber(null);
+                      setFormData((prev) => ({ ...prev, message: '' }));
+                    }}
+                    variant="outline"
+                    size="sm"
+                  >
+                    Send Another Message
+                  </Button>
+                </div>
+              </div>
+            ) : !user ? (
+              /* Forced Sign-Up / Login Gate */
+              <div className="bg-white p-8 md:p-10 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6">
+                <div className="w-16 h-16 rounded-full bg-soft-sage/50 text-orchard-green flex items-center justify-center mx-auto">
+                  <User className="w-8 h-8 text-orchard-green" />
+                </div>
+                <div className="space-y-2">
+                  <Badge variant="gold">Customer Account Required</Badge>
+                  <h4 className="font-display text-2xl md:text-3xl text-charcoal">Sign In to Send an Enquiry</h4>
+                  <p className="font-body text-sm text-charcoal/70 max-w-md mx-auto leading-relaxed">
+                    Please log in or create your customer account to connect with our orchard team. Signing in links your enquiry directly to your verified contact coordinates so we can provide prompt updates on WhatsApp and email.
+                  </p>
+                </div>
+                <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+                  <Button
+                    type="button"
+                    onClick={() => setIsAuthOpen(true)}
+                    variant="gold"
+                    size="lg"
+                    className="w-full sm:w-auto shadow-md"
+                  >
+                    Sign In / Create Account
+                  </Button>
+                  <Button
+                    type="button"
+                    href="/faq"
+                    variant="ghost"
+                    size="sm"
+                    className="w-full sm:w-auto"
+                  >
+                    Read Common FAQs
+                  </Button>
+                </div>
               </div>
             ) : (
+              /* Authenticated Enquiry Form */
               <form onSubmit={handleSubmit} className="space-y-4">
+                <div className="flex items-center justify-between pb-1">
+                  <span className="font-body text-xs text-orchard-green font-semibold flex items-center gap-1.5">
+                    <ShieldCheck className="w-4 h-4 text-orchard-green" /> Signed in as {user.email}
+                  </span>
+                  <span className="font-body text-xs text-charcoal/40">* Required fields</span>
+                </div>
+
                 <Input
                   label="Full Name"
                   required
@@ -88,20 +213,27 @@ export default function ContactPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <Input
-                    label="Mobile Number"
+                    label="Mobile Number (for WhatsApp Updates)"
                     required
                     maxLength={10}
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="10-digit number"
+                    placeholder="10-digit Indian number"
                   />
-                  <Input
-                    label="Email Address"
-                    type="email"
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="name@example.com"
-                  />
+                  <div>
+                    <Input
+                      label="Email Address (Account Verified)"
+                      type="email"
+                      disabled
+                      value={user.email || formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="name@example.com"
+                      className="bg-charcoal/5 cursor-not-allowed"
+                    />
+                    <span className="block text-[11px] text-charcoal/50 mt-1">
+                      Linked to your signed-in account
+                    </span>
+                  </div>
                 </div>
 
                 <Select
@@ -117,15 +249,28 @@ export default function ContactPage() {
                   rows={5}
                   value={formData.message}
                   onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-                  placeholder="How can we assist you with our mangoes or orchard?"
+                  placeholder="How can we assist you with our mangoes, tree adoption, or visiting the orchard?"
                 />
 
                 {errorMsg && (
                   <p className="text-sm text-red-600 font-body">{errorMsg}</p>
                 )}
 
-                <Button type="submit" variant="primary" size="lg" fullWidth>
-                  Send Message
+                <Button
+                  type="submit"
+                  variant="gold"
+                  size="lg"
+                  fullWidth
+                  disabled={isSubmitting}
+                  className="shadow-md"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Submitting Enquiry...
+                    </>
+                  ) : (
+                    'Send Message'
+                  )}
                 </Button>
               </form>
             )}
@@ -184,7 +329,9 @@ export default function ContactPage() {
           </div>
         </div>
       </Section>
+
+      {/* Global Auth Modal */}
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
     </>
   );
 }
-

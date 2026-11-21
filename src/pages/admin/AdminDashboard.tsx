@@ -41,6 +41,7 @@ import {
   Phone,
   Mail,
   MapPin,
+  MessageSquare,
   Database as DatabaseIcon,
 } from 'lucide-react';
 import type { Product, Tree, JournalArticle } from '../../types/database';
@@ -53,6 +54,7 @@ type AdminTab =
   | 'trees'
   | 'pricing'
   | 'visits'
+  | 'enquiries'
   | 'inventory'
   | 'journal'
   | 'activity';
@@ -83,6 +85,9 @@ export default function AdminDashboard() {
     updateVisitStatus,
     cancelVisit,
     restoreVisit,
+    enquiries,
+    updateEnquiryStatus,
+    deleteEnquiry,
     packaging,
     adjustPackagingStock,
     articles,
@@ -101,6 +106,8 @@ export default function AdminDashboard() {
   const [orderFilter, setOrderFilter] = useState<string>('all');
   const [visitSearch, setVisitSearch] = useState('');
   const [visitFilter, setVisitFilter] = useState<string>('all');
+  const [enquirySearch, setEnquirySearch] = useState('');
+  const [enquiryFilter, setEnquiryFilter] = useState<string>('all');
 
   // Modal States
   const [selectedTreeForPhoto, setSelectedTreeForPhoto] = useState<Tree | null>(null);
@@ -199,6 +206,25 @@ export default function AdminDashboard() {
     }
     return true;
   });
+
+  // Filtered Enquiries
+  const filteredEnquiries = (enquiries || []).filter((e) => {
+    if (enquiryFilter !== 'all' && e.status !== enquiryFilter) return false;
+    if (enquirySearch.trim()) {
+      const q = enquirySearch.toLowerCase().trim();
+      return (
+        e.reference_number?.toLowerCase().includes(q) ||
+        e.name?.toLowerCase().includes(q) ||
+        e.phone?.includes(q) ||
+        (e.email && e.email.toLowerCase().includes(q)) ||
+        e.category?.toLowerCase().includes(q) ||
+        e.message?.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
+
+  const unreadEnquiryCount = (enquiries || []).filter((e) => e.status === 'new' || !e.is_read).length;
 
   // Handle Photo File Selection & Client-Side Compression
   async function handlePhotoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -479,6 +505,22 @@ export default function AdminDashboard() {
               {pendingVisits > 0 && (
                 <span className="bg-amber-500 text-deep-forest font-bold px-1.5 py-0.5 rounded-full text-[10px]">
                   {pendingVisits}
+                </span>
+              )}
+            </button>
+
+            <button
+              onClick={() => { setActiveTab('enquiries'); setMobileMenuOpen(false); }}
+              className={`w-full flex items-center justify-between px-3 py-2.5 rounded-soft transition-colors ${
+                activeTab === 'enquiries' ? 'bg-orchard-green text-white font-semibold' : 'text-white/75 hover:bg-white/10'
+              }`}
+            >
+              <span className="flex items-center gap-3">
+                <MessageSquare className="w-4 h-4" /> Enquiries
+              </span>
+              {unreadEnquiryCount > 0 && (
+                <span className="bg-amber-500 text-deep-forest font-bold px-1.5 py-0.5 rounded-full text-[10px]">
+                  {unreadEnquiryCount}
                 </span>
               )}
             </button>
@@ -1452,6 +1494,206 @@ export default function AdminDashboard() {
                           </td>
                         </tr>
                       ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* TAB: CUSTOMER CONTACT ENQUIRIES */}
+          {/* ========================================================================= */}
+          {activeTab === 'enquiries' && (
+            <div className="space-y-6 animate-fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="font-display text-3xl text-charcoal">Customer Enquiries & Messages</h2>
+                  <p className="font-body text-xs text-charcoal/60">
+                    Review incoming queries submitted via the contact form. Direct communication available via WhatsApp and email.
+                  </p>
+                </div>
+                <Button onClick={() => window.print()} variant="outline" size="sm">
+                  <Printer className="w-3.5 h-3.5 mr-1" /> Print Enquiries
+                </Button>
+              </div>
+
+              {/* Search & Filter Bar */}
+              <div className="bg-white p-4 rounded-softer shadow-card border border-charcoal/10 flex flex-col sm:flex-row items-center justify-between gap-3">
+                <div className="relative w-full sm:w-80">
+                  <Search className="w-4 h-4 text-charcoal/40 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search ref #, name, phone, email, message..."
+                    value={enquirySearch}
+                    onChange={(e) => setEnquirySearch(e.target.value)}
+                    className="w-full pl-9 pr-3 py-1.5 text-xs font-body rounded-soft border border-charcoal/20 focus:outline-none focus:border-orchard-green"
+                  />
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 w-full sm:w-auto">
+                  {['all', 'new', 'in_progress', 'responded', 'archived'].map((st) => (
+                    <button
+                      key={st}
+                      onClick={() => setEnquiryFilter(st)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-body capitalize transition-colors ${
+                        enquiryFilter === st
+                          ? 'bg-orchard-green text-white font-semibold'
+                          : 'bg-charcoal/5 text-charcoal/70 hover:bg-charcoal/10'
+                      }`}
+                    >
+                      {st.replace('_', ' ')}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Enquiries Table */}
+              <div className="bg-white rounded-softer shadow-card border border-charcoal/10 overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left font-body text-xs">
+                    <thead className="bg-charcoal/5 border-b border-charcoal/10 text-charcoal/70">
+                      <tr>
+                        <th className="py-3 px-4">Ref #</th>
+                        <th className="py-3 px-4">Customer</th>
+                        <th className="py-3 px-4">Topic / Category</th>
+                        <th className="py-3 px-4">Message</th>
+                        <th className="py-3 px-4">Received</th>
+                        <th className="py-3 px-4">Status</th>
+                        <th className="py-3 px-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-charcoal/5">
+                      {filteredEnquiries.length > 0 ? (
+                        filteredEnquiries.map((enq) => (
+                          <tr key={enq.id} className="hover:bg-mango-cream/20 transition-colors">
+                            <td className="py-3 px-4 font-bold text-charcoal whitespace-nowrap">
+                              {enq.reference_number}
+                            </td>
+                            <td className="py-3 px-4">
+                              <p className="font-semibold text-charcoal">{enq.name}</p>
+                              <div className="flex items-center gap-2 text-[11px] text-charcoal/60 mt-0.5">
+                                <a
+                                  href={`tel:${enq.phone}`}
+                                  className="hover:text-orchard-green flex items-center gap-0.5"
+                                >
+                                  <Phone className="w-3 h-3" /> {enq.phone}
+                                </a>
+                                {enq.email && (
+                                  <a
+                                    href={`mailto:${enq.email}`}
+                                    className="hover:text-orchard-green flex items-center gap-0.5"
+                                    title={enq.email}
+                                  >
+                                    <Mail className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-3 px-4">
+                              <Badge variant="neutral" size="sm">
+                                {enq.category}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 max-w-xs">
+                              <p className="text-charcoal/80 leading-relaxed line-clamp-3">
+                                {enq.message}
+                              </p>
+                              {enq.admin_notes && (
+                                <p className="text-[10px] text-orchard-green italic mt-1">
+                                  Note: {enq.admin_notes}
+                                </p>
+                              )}
+                            </td>
+                            <td className="py-3 px-4 text-charcoal/60 whitespace-nowrap">
+                              {enq.created_at ? enq.created_at.split('T')[0] : 'Just now'}
+                            </td>
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              <Badge
+                                variant={
+                                  enq.status === 'responded'
+                                    ? 'green'
+                                    : enq.status === 'new'
+                                    ? 'gold'
+                                    : 'neutral'
+                                }
+                                size="sm"
+                              >
+                                {enq.status.replace('_', ' ').toUpperCase()}
+                              </Badge>
+                            </td>
+                            <td className="py-3 px-4 text-right whitespace-nowrap">
+                              <div className="flex items-center justify-end gap-1.5">
+                                {/* WhatsApp Direct Contact */}
+                                <a
+                                  href={`https://wa.me/91${enq.phone.replace(/\D/g, '')}?text=${encodeURIComponent(
+                                    `Hello ${enq.name}, greetings from Kesari Van regarding your enquiry (${enq.reference_number}).`
+                                  )}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-2 py-1 bg-emerald-600 text-white rounded text-[11px] font-semibold hover:bg-emerald-700 inline-flex items-center gap-1"
+                                  title="Chat on WhatsApp"
+                                >
+                                  WhatsApp
+                                </a>
+
+                                {/* Status Transitions */}
+                                {enq.status !== 'responded' && (
+                                  <button
+                                    onClick={() => updateEnquiryStatus(enq.id, 'responded')}
+                                    className="px-2 py-1 bg-orchard-green text-white rounded text-[11px] font-semibold hover:bg-deep-forest"
+                                    title="Mark as Responded"
+                                  >
+                                    Responded
+                                  </button>
+                                )}
+                                {enq.status !== 'archived' ? (
+                                  <button
+                                    onClick={() => updateEnquiryStatus(enq.id, 'archived')}
+                                    className="px-2 py-1 bg-charcoal/10 text-charcoal/70 rounded text-[11px] hover:bg-charcoal/20"
+                                    title="Archive Enquiry"
+                                  >
+                                    Archive
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => updateEnquiryStatus(enq.id, 'new')}
+                                    className="px-2 py-1 bg-amber-100 text-amber-900 rounded text-[11px] font-semibold hover:bg-amber-200"
+                                    title="Mark as New"
+                                  >
+                                    Reopen
+                                  </button>
+                                )}
+
+                                {/* Delete */}
+                                <button
+                                  onClick={() => {
+                                    if (window.confirm(`Delete enquiry ${enq.reference_number}?`)) {
+                                      deleteEnquiry(enq.id);
+                                    }
+                                  }}
+                                  className="p-1 text-red-600 hover:bg-red-50 rounded"
+                                  title="Delete Enquiry"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td colSpan={7} className="py-12 text-center text-charcoal/50">
+                            <MessageSquare className="w-8 h-8 mx-auto mb-2 text-charcoal/30" />
+                            <p className="font-semibold text-charcoal/70">No enquiries found</p>
+                            <p className="text-[11px] text-charcoal/40">
+                              {enquirySearch || enquiryFilter !== 'all'
+                                ? 'Try adjusting your search query or filter.'
+                                : 'Incoming customer enquiries from the website will appear here in real-time.'}
+                            </p>
+                          </td>
+                        </tr>
+                      )}
                     </tbody>
                   </table>
                 </div>

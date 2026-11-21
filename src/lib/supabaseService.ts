@@ -188,6 +188,16 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
       useOrchardStore.setState({ activityLogs: dbActLogs as any });
     }
 
+    // 9. Fetch Contact Enquiries
+    const { data: dbEnquiries, error: enqErr } = await supabase
+      .from('contact_enquiries')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (!enqErr && dbEnquiries) {
+      useOrchardStore.setState({ enquiries: dbEnquiries as any });
+    }
+
     return { success: true, message: 'Successfully synced all data from Supabase!' };
   } catch (err: any) {
     console.error('Error syncing from Supabase:', err);
