@@ -43,7 +43,7 @@ export function Layout() {
             email: session.user.email || null,
             phone: session.user.user_metadata?.phone || null,
             avatar_url: null,
-            role: session.user.email?.includes('admin') ? 'admin' : 'customer',
+            role: (session.user.email?.includes('admin') || session.user.email?.toLowerCase() === 'yashjpatel369@gmail.com') ? 'admin' : 'customer',
             created_at: session.user.created_at || new Date().toISOString(),
             updated_at: new Date().toISOString(),
           });

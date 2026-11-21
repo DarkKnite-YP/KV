@@ -79,18 +79,6 @@ export function Header() {
 
             {/* Utilities */}
             <div className="flex items-center gap-3">
-              {/* Admin Portal Shortcut if Admin */}
-              {isAdmin && (
-                <Link
-                  to="/admin"
-                  className="hidden md:flex items-center gap-1.5 px-3 py-1.5 bg-deep-forest text-white rounded-full text-xs font-body font-medium hover:bg-black transition-colors"
-                  title="Orchard Admin Operations"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-dawn-gold" />
-                  <span>Admin</span>
-                </Link>
-              )}
-
               {/* Account / Login */}
               {user ? (
                 <Link
@@ -175,15 +163,6 @@ export function Header() {
                   >
                     Sign In / Register
                   </button>
-                )}
-
-                {isAdmin && (
-                  <Link
-                    to="/admin"
-                    className="block px-4 py-3 font-body text-base font-medium text-amber-800 hover:bg-soft-sage/30 rounded-soft transition-colors"
-                  >
-                    Admin Operations Portal
-                  </Link>
                 )}
 
                 <Link

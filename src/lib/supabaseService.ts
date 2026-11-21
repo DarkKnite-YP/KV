@@ -105,6 +105,14 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
           let itemsCount = o.quantity || 1;
           let customerNotes = notes;
 
+          // Helper to check if a string is a landmark/address rather than a collection
+          const isNotProduct = (val: string) => {
+            if (!val) return true;
+            const l = val.toLowerCase().trim();
+            if (l.startsWith('near ') || l.includes('pnb') || l.includes('landmark') || l.includes('floor') || l.includes('sector') || l.includes('doorbell') || l.includes('leave with')) return true;
+            return false;
+          };
+
           // 1. If order_items are present, derive exact collection summary and quantity
           if (o.order_items && o.order_items.length > 0) {
             itemsSummary = o.order_items.map((i: any) => `${i.quantity}x ${i.product_name}`).join(', ');
@@ -127,14 +135,23 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
             }
             const matchQty = itemsSummary.match(/^(\d+)x/);
             if (matchQty) itemsCount = parseInt(matchQty[1], 10);
-          } else if (!itemsSummary) {
-            // If notes is pure delivery instructions (like 'near pnb'), keep it in notes and do NOT use as collection name
+          }
+
+          // Safety guard: if itemsSummary is empty or mistaken for address/landmark notes
+          if (!itemsSummary || isNotProduct(itemsSummary)) {
+            if (isNotProduct(itemsSummary) && (!customerNotes || customerNotes === itemsSummary)) {
+              customerNotes = itemsSummary;
+            }
             if (notes.toLowerCase().includes('signature')) {
               itemsSummary = 'Signature Harvest';
             } else if (notes.toLowerCase().includes('golden')) {
               itemsSummary = 'Golden Kesar';
             } else if (notes.toLowerCase().includes('premium')) {
               itemsSummary = 'Premium Kesar';
+            } else if (o.total_amount === 175000) {
+              itemsSummary = '1x Signature Harvest';
+            } else if (o.total_amount === 530000) {
+              itemsSummary = '3x Signature Harvest';
             } else {
               itemsSummary = 'Gir Kesar Mango Collection';
             }

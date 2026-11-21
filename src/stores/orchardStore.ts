@@ -699,27 +699,6 @@ export const useOrchardStore = create<OrchardState>()(
         const newOrder: HarvestOrderItem = { ...orderData, id };
         set((state) => ({ orders: [newOrder, ...state.orders] }));
 
-        if (isRealSupabase()) {
-          (supabase.from('orders') as any).insert({
-            order_number: newOrder.order_number,
-            customer_name: newOrder.customer_name,
-            phone: newOrder.phone,
-            email: newOrder.email,
-            status: newOrder.status,
-            payment_status: newOrder.payment_status,
-            subtotal: newOrder.subtotal,
-            shipping_amount: newOrder.shipping_amount,
-            total_amount: newOrder.total_amount,
-            delivery_address: newOrder.delivery_address,
-            courier_name: newOrder.courier_name || null,
-            tracking_number: newOrder.tracking_number || null,
-            dispatch_date: newOrder.dispatch_date || null,
-            notes: newOrder.notes ? `${newOrder.notes} | Items: ${newOrder.items_summary}` : `Items: ${newOrder.items_summary}`,
-          }).then(({ error }: any) => {
-            if (error) console.error('Failed to insert order into Supabase:', error);
-          });
-        }
-
         get().logActivity({
           action: 'Order Placed',
           target_type: 'order',
@@ -1325,7 +1304,7 @@ export const useOrchardStore = create<OrchardState>()(
       },
     }),
     {
-      name: 'kesari-van-orchard-state-v5',
+      name: 'kesari-van-orchard-state-v6',
       partialize: (state) => ({
         products: state.products,
         trees: state.trees,

@@ -53,6 +53,7 @@ const AccountVisitsPage = lazy(() => import('./pages/account/AccountVisitsPage')
 
 // Admin
 const AdminDashboard = lazy(() => import('./pages/admin/AdminDashboard'));
+const AdminGuard = lazy(() => import('./components/admin/AdminGuard'));
 
 // 404
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'));
@@ -321,7 +322,9 @@ const router = createBrowserRouter([
         path: 'admin/*',
         element: (
           <Suspense fallback={<PageLoading />}>
-            <AdminDashboard />
+            <AdminGuard>
+              <AdminDashboard />
+            </AdminGuard>
           </Suspense>
         ),
       },

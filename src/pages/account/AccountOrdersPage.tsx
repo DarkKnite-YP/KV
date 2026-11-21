@@ -8,6 +8,17 @@ import { ArrowRight, ShoppingBag } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { useOrchardStore } from '../../stores/orchardStore';
 
+function getCleanCollectionTitle(order: any): string {
+  const isSuspicious = (val?: string) => {
+    if (!val) return true;
+    const l = val.toLowerCase().trim();
+    return l.startsWith('near ') || l.includes('pnb') || l.includes('landmark') || l.includes('floor') || l.includes('sector');
+  };
+  if (order.collection_type && !isSuspicious(order.collection_type)) return order.collection_type;
+  if (order.items_summary && !isSuspicious(order.items_summary)) return order.items_summary;
+  return 'Gir Kesar Mango Collection';
+}
+
 export default function AccountOrdersPage() {
   const { user } = useAuthStore();
   const { orders } = useOrchardStore();
@@ -43,10 +54,10 @@ export default function AccountOrdersPage() {
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-body text-sm">
                   <div>
-                    <p className="font-semibold text-charcoal">{order.collection_type || order.items_summary || 'Gir Kesar Mango Collection'}</p>
+                    <p className="font-semibold text-charcoal">{getCleanCollectionTitle(order)}</p>
                     <p className="text-xs text-charcoal/60">Quantity: {order.quantity || order.items_count || 1} box{(order.quantity || order.items_count || 1) > 1 ? 'es' : ''}</p>
-                    {order.notes && order.notes !== order.items_summary && (
-                      <p className="text-xs text-charcoal/50 italic mt-1">Delivery note: {order.notes}</p>
+                    {order.notes && order.notes !== getCleanCollectionTitle(order) && (
+                      <p className="text-xs text-charcoal/50 italic mt-1">Delivery note: {order.notes.replace(/^Items:[^|]+\|\s*Notes:\s*/i, '').replace(/^Items:[^|]+/i, '')}</p>
                     )}
                   </div>
                   <div className="text-right">

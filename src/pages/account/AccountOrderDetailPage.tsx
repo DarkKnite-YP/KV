@@ -7,6 +7,17 @@ import { formatPrice } from '../../lib/utils';
 import { ArrowLeft, CheckCircle2, Truck, Package, ShoppingBag } from 'lucide-react';
 import { useOrchardStore } from '../../stores/orchardStore';
 
+function getCleanCollectionTitle(order: any): string {
+  const isSuspicious = (val?: string) => {
+    if (!val) return true;
+    const l = val.toLowerCase().trim();
+    return l.startsWith('near ') || l.includes('pnb') || l.includes('landmark') || l.includes('floor') || l.includes('sector');
+  };
+  if (order.collection_type && !isSuspicious(order.collection_type)) return order.collection_type;
+  if (order.items_summary && !isSuspicious(order.items_summary)) return order.items_summary;
+  return 'Gir Kesar Mango Collection';
+}
+
 export default function AccountOrderDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { orders } = useOrchardStore();
@@ -90,7 +101,7 @@ export default function AccountOrderDetailPage() {
             <h4 className="font-display text-lg text-charcoal">Purchased Collections</h4>
             <div className="flex justify-between items-center py-2 border-b border-charcoal/5">
               <div>
-                <p className="font-semibold text-charcoal">{order.collection_type || order.items_summary || 'Gir Kesar Mango Collection'}</p>
+                <p className="font-semibold text-charcoal">{getCleanCollectionTitle(order)}</p>
                 <p className="text-xs text-charcoal/60">Quantity: {order.quantity || order.items_count || 1} box{(order.quantity || order.items_count || 1) > 1 ? 'es' : ''}</p>
               </div>
               <span className="font-semibold text-charcoal">{formatPrice(order.subtotal)}</span>

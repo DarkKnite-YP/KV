@@ -42,6 +42,7 @@ import {
   Mail,
   MapPin,
   MessageSquare,
+  Lock,
   Database as DatabaseIcon,
 } from 'lucide-react';
 import type { Product, Tree, JournalArticle } from '../../types/database';
@@ -553,10 +554,22 @@ export default function AdminDashboard() {
             </button>
           </nav>
 
-          <div className="pt-6 border-t border-white/10 space-y-2">
+          <div className="pt-6 border-t border-white/10 space-y-1 font-body text-xs">
+            <button
+              onClick={() => {
+                try {
+                  localStorage.removeItem('kv_admin_pin_session_v1');
+                } catch {}
+                window.location.reload();
+              }}
+              className="w-full flex items-center gap-2 px-3 py-2 text-white/70 hover:text-dawn-gold hover:bg-white/5 rounded-soft transition-colors text-left"
+              title="Lock Console (Require PIN to enter)"
+            >
+              <Lock className="w-3.5 h-3.5" /> Lock Console
+            </button>
             <Link
               to="/"
-              className="inline-flex items-center gap-2 text-xs font-body text-white/70 hover:text-white"
+              className="flex items-center gap-2 px-3 py-2 text-white/70 hover:text-white hover:bg-white/5 rounded-soft transition-colors"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> Return to Website
             </Link>

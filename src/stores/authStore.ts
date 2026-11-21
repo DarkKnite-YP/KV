@@ -23,13 +23,20 @@ export const useAuthStore = create<AuthState>((set) => ({
   isLoading: true,
   isAdmin: false,
 
-  setUser: (user) => set({ user }),
+  setUser: (user) =>
+    set((state) => ({
+      user,
+      isAdmin: state.profile?.role === 'admin' || user?.email?.toLowerCase() === 'yashjpatel369@gmail.com',
+    })),
   setSession: (session) => set({ session }),
   setProfile: (profile) =>
-    set({
+    set((state) => ({
       profile,
-      isAdmin: profile?.role === 'admin',
-    }),
+      isAdmin:
+        profile?.role === 'admin' ||
+        state.user?.email?.toLowerCase() === 'yashjpatel369@gmail.com' ||
+        profile?.email?.toLowerCase() === 'yashjpatel369@gmail.com',
+    })),
   setLoading: (isLoading) => set({ isLoading }),
   reset: () =>
     set({
