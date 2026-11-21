@@ -21,6 +21,7 @@ export function AuthModal({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
   const [phone, setPhone] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
@@ -47,7 +48,8 @@ export function AuthModal({
             password,
             options: {
               data: {
-                first_name: firstName,
+                first_name: firstName.trim(),
+                last_name: lastName.trim(),
                 phone,
               },
             },
@@ -58,8 +60,8 @@ export function AuthModal({
             setUser(data.user);
             setProfile({
               id: data.user!.id,
-              first_name: firstName,
-              last_name: null,
+              first_name: firstName.trim(),
+              last_name: lastName.trim() || null,
               email: data.user!.email || email,
               phone,
               avatar_url: null,
@@ -84,7 +86,7 @@ export function AuthModal({
           setProfile({
             id: data.user.id,
             first_name: data.user.user_metadata?.first_name || 'Customer',
-            last_name: null,
+            last_name: data.user.user_metadata?.last_name || null,
             email: data.user.email || email,
             phone: data.user.user_metadata?.phone || null,
             avatar_url: null,
@@ -109,7 +111,7 @@ export function AuthModal({
           aud: 'authenticated',
           role: 'authenticated',
           app_metadata: {},
-          user_metadata: { first_name: firstName || 'Rajesh' },
+          user_metadata: { first_name: firstName.trim() || 'Rajesh', last_name: lastName.trim() || 'Patel' },
           created_at: new Date().toISOString(),
         };
 
@@ -117,8 +119,8 @@ export function AuthModal({
         setSession({} as any);
         setProfile({
           id: mockUser.id,
-          first_name: firstName || 'Rajesh',
-          last_name: 'Patel',
+          first_name: firstName.trim() || 'Rajesh',
+          last_name: lastName.trim() || 'Patel',
           email: mockUser.email,
           phone: phone || '+91 98765 43210',
           avatar_url: null,
@@ -131,35 +133,6 @@ export function AuthModal({
         onClose();
       }, 600);
     }
-  }
-
-  // Quick Demo / Admin Sign-in
-  function handleDemoSignIn(role: 'customer' | 'admin') {
-    const mockUser: any = {
-      id: role === 'admin' ? 'admin-uuid-001' : 'cust-uuid-001',
-      email: role === 'admin' ? 'admin@kesarivan.in' : 'rajesh.patel@example.com',
-      aud: 'authenticated',
-      role: 'authenticated',
-      app_metadata: {},
-      user_metadata: { first_name: role === 'admin' ? 'Orchard Admin' : 'Rajesh' },
-      created_at: new Date().toISOString(),
-    };
-
-    setUser(mockUser);
-    setSession({} as any);
-    setProfile({
-      id: mockUser.id,
-      first_name: role === 'admin' ? 'Yash' : 'Rajesh',
-      last_name: role === 'admin' ? '(Admin)' : 'Patel',
-      email: mockUser.email,
-      phone: '+91 98765 43210',
-      avatar_url: null,
-      role: role,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    onSuccess?.();
-    onClose();
   }
 
   return (
@@ -200,13 +173,22 @@ export function AuthModal({
         <form onSubmit={handleAuth} className="space-y-4">
           {mode === 'signup' && (
             <>
-              <Input
-                label="Full Name"
-                required
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Rajesh Patel"
-              />
+              <div className="grid grid-cols-2 gap-3">
+                <Input
+                  label="First Name"
+                  required
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Rajesh"
+                />
+                <Input
+                  label="Last Name"
+                  required
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Patel"
+                />
+              </div>
               <Input
                 label="Mobile Number (WhatsApp)"
                 required
@@ -240,24 +222,6 @@ export function AuthModal({
             {mode === 'login' ? 'Sign In' : 'Create Account'}
           </Button>
         </form>
-
-        {/* Quick Admin Access Button (login mode only) */}
-        {mode === 'login' && (
-          <div className="pt-2 border-t border-charcoal/10 text-center space-y-2">
-            <p className="text-[11px] font-body text-charcoal/50 uppercase tracking-wider">
-              Quick Admin Access
-            </p>
-            <div className="flex justify-center">
-              <button
-                type="button"
-                onClick={() => handleDemoSignIn('admin')}
-                className="text-xs px-4 py-1.5 rounded bg-deep-forest text-white hover:bg-black font-body font-medium transition-colors"
-              >
-                Sign In as Admin
-              </button>
-            </div>
-          </div>
-        )}
 
         <div className="text-center pt-2">
           <button

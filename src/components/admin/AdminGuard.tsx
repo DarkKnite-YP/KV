@@ -9,7 +9,7 @@ interface AdminGuardProps {
   children: React.ReactNode;
 }
 
-const MASTER_PIN = import.meta.env.VITE_ADMIN_MASTER_PIN || '240904';
+const MASTER_PIN = import.meta.env.VITE_ADMIN_MASTER_PIN || '201023';
 const PIN_STORAGE_KEY = 'kv_admin_pin_session_v1';
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
 
@@ -195,7 +195,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
               required
               value={adminEmail}
               onChange={(e) => setAdminEmail(e.target.value)}
-              placeholder="yashjpatel369@gmail.com"
+              placeholder="admin@kesarivan.in"
             />
 
             <div className="space-y-1">
@@ -268,7 +268,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
           </div>
 
           <div className="p-3 bg-charcoal/5 rounded border border-charcoal/10 text-xs font-body text-charcoal/60 text-left">
-            Orchard operations are strictly confined to <strong>yashjpatel369@gmail.com</strong> and designated admin roles.
+            Orchard operations are strictly confined to authorized administrator accounts.
           </div>
 
           <div className="space-y-2 pt-2">
