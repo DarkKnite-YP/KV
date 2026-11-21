@@ -336,7 +336,7 @@ export default function AdminDashboard() {
         <div className="hidden print:block fixed inset-0 bg-white p-8 font-body text-charcoal z-[9999]">
           <div className="border-b-2 border-charcoal pb-4 mb-6 flex justify-between items-start">
             <div>
-              <h1 className="font-display text-3xl font-bold text-deep-forest">KESARI VAN</h1>
+              <img src="/logo-dark.svg" alt="Kesari Van" className="h-14 w-auto mb-2 object-contain" />
               <p className="text-xs text-charcoal/70">Authentic Gir Kesar Mango Orchard</p>
               <p className="text-xs text-charcoal/70">Umbhel, Kamrej, Surat, Gujarat — 394150</p>
               <p className="text-xs text-charcoal/70">WhatsApp / Phone: +91 94091 16104</p>
@@ -403,10 +403,10 @@ export default function AdminDashboard() {
       {/* Main Admin UI */}
       <div className="min-h-screen bg-mango-cream flex flex-col md:flex-row print:hidden">
         {/* Mobile Header */}
-        <div className="md:hidden bg-deep-forest text-white px-4 py-3 flex items-center justify-between shadow-md">
-          <div className="flex items-center gap-2">
-            <span className="font-display text-xl font-bold">Kesari Van Admin</span>
-          </div>
+        <div className="md:hidden bg-deep-forest text-white px-4 py-2.5 flex items-center justify-between shadow-md">
+          <Link to="/" className="flex items-center gap-2" aria-label="Kesari Van Home">
+            <img src="/logo-light.svg" alt="Kesari Van" className="h-9 w-auto object-contain" />
+          </Link>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
             className="p-1.5 text-white/80 hover:text-white rounded hover:bg-white/10"
@@ -424,10 +424,10 @@ export default function AdminDashboard() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <Link to="/" className="font-display text-2xl font-bold tracking-tight text-white block">
-                Kesari Van
+              <Link to="/" className="block hover:opacity-90 transition-opacity" aria-label="Kesari Van Home">
+                <img src="/logo-light.svg" alt="Kesari Van" className="h-11 w-auto object-contain" />
               </Link>
-              <span className="font-body text-[10px] text-dawn-gold tracking-widest uppercase block font-semibold">
+              <span className="font-body text-[10px] text-dawn-gold tracking-widest uppercase block font-semibold mt-1">
                 Central Orchard Ops
               </span>
             </div>

@@ -16,11 +16,16 @@ export function Footer() {
             <div className="lg:col-span-1">
               <Link
                 to="/"
-                className="font-display text-2xl font-semibold text-white"
+                className="inline-block hover:opacity-90 transition-opacity mb-2"
+                aria-label="Kesari Van"
               >
-                Kesari Van
+                <img
+                  src="/logo-light.svg"
+                  alt="Kesari Van"
+                  className="h-14 w-auto object-contain"
+                />
               </Link>
-              <p className="font-body text-sm text-white/60 mt-3 leading-relaxed max-w-xs">
+              <p className="font-body text-sm text-white/60 mt-2 leading-relaxed max-w-xs">
                 A mango orchard in Surat, Gujarat. Growing Gir Kesar with care,
                 season by season.
               </p>

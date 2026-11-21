@@ -25,6 +25,7 @@ export default function OrderSuccessPage() {
       <div className="pt-28 pb-20 bg-mango-cream">
         <Container narrow>
           <div className="bg-white p-8 md:p-12 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6">
+            <img src="/logo-dark.svg" alt="Kesari Van" className="h-14 w-auto mx-auto object-contain" />
             <div className="w-16 h-16 rounded-full bg-soft-sage text-orchard-green flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-10 h-10" />
             </div>

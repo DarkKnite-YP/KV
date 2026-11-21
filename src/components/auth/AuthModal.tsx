@@ -174,7 +174,7 @@ export function AuthModal({
         </button>
 
         <div className="text-center space-y-1">
-          <p className="font-display text-2xl text-orchard-green font-semibold">Kesari Van</p>
+          <img src="/logo-dark.svg" alt="Kesari Van" className="h-12 w-auto mx-auto mb-2 object-contain" />
           <h3 className="font-display text-3xl text-charcoal">
             {mode === 'login' ? 'Welcome to the Orchard' : 'Create an Account'}
           </h3>

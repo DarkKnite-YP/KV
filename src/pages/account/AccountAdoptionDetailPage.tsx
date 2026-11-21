@@ -46,6 +46,7 @@ export default function AccountAdoptionDetailPage() {
         <div className="space-y-6">
           {/* Certificate Card */}
           <div className="bg-white p-8 md:p-10 rounded-softer shadow-card border-2 border-dawn-gold/40 text-center space-y-4 relative overflow-hidden">
+            <img src="/logo-dark.svg" alt="Kesari Van" className="h-16 w-auto mx-auto object-contain" />
             <div className="w-12 h-12 rounded-full bg-dawn-gold/20 text-dawn-gold flex items-center justify-center mx-auto">
               <Award className="w-6 h-6" />
             </div>

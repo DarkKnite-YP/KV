@@ -52,9 +52,14 @@ export function Header() {
             {/* Logo */}
             <Link
               to="/"
-              className={`font-display text-xl md:text-2xl font-semibold ${logoColor} transition-colors`}
+              className="flex items-center gap-2 group transition-opacity hover:opacity-90 py-1"
+              aria-label="Kesari Van"
             >
-              Kesari Van
+              <img
+                src={logoColor === 'text-white' ? '/logo-light.svg' : '/logo-dark.svg'}
+                alt="Kesari Van"
+                className="h-10 md:h-12 w-auto object-contain transition-all"
+              />
             </Link>
 
             {/* Desktop Nav */}
