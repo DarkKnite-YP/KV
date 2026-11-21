@@ -16,7 +16,7 @@ export default function HomePage() {
   return (
     <>
       <SEO
-        title="Gir Kesar Mangoes Grown in Surat, Gujarat"
+        title="Kesari Van Mangoes"
         description="Welcome to Kesari Van, an authentic mango orchard in Umbhel, Kamrej, Surat. Experience real Gir Kesar mangoes, tree adoption, and sustainable orchard care."
       />
 

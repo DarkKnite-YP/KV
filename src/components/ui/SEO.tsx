@@ -17,7 +17,45 @@ export function SEO({
   type = 'website',
   noIndex = false,
 }: SEOProps) {
-  const fullTitle = title === 'Kesari Van' ? title : `${title} — Kesari Van`;
+  let fullTitle: string;
+
+  if (
+    !title ||
+    title === 'Kesari Van Mangoes' ||
+    title === 'Kesari Van' ||
+    title.toLowerCase().includes('gir kesar mangoes grown in surat')
+  ) {
+    fullTitle = 'Kesari Van Mangoes';
+  } else {
+    let clean = title
+      .replace(/^Kesari Van\s*[|—–-]\s*/i, '')
+      .replace(/\s*[|—–-]\s*Kesari Van.*$/i, '')
+      .trim();
+
+    if (clean.includes(' — ')) {
+      clean = clean.split(' — ')[0].trim();
+    }
+    if (clean.startsWith('Contact Kesari Van')) {
+      clean = 'Contact';
+    }
+    if (clean.startsWith('Visit Kesari Van')) {
+      clean = 'Visit Orchard';
+    }
+    if (clean.includes('Frequently Asked Questions')) {
+      clean = 'FAQ';
+    }
+    if (clean.includes('Cancellation & Refund Policy')) {
+      clean = 'Refund Policy';
+    }
+    if (clean.includes('Shipping & Delivery Policy')) {
+      clean = 'Shipping Policy';
+    }
+    if (clean.includes('Admin Portal')) {
+      clean = 'Admin Portal';
+    }
+
+    fullTitle = `Kesari Van | ${clean}`;
+  }
 
   return (
     <Helmet>
