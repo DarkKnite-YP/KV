@@ -224,6 +224,7 @@ export interface Tree {
   variety: string;
   location_description: string | null;
   photo_url: string | null;
+  photos?: string[] | null;
   status: TreeStatus;
   season: string; // e.g. "2024"
   adoption_fee: number; // in paise

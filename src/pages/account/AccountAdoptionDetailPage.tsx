@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { AccountLayout } from '../../components/account/AccountLayout';
 import { SEO } from '../../components/ui/SEO';
-import { Badge, Button } from '../../components/ui';
+import { Badge, Button, BrandLogo } from '../../components/ui';
 import { ArrowLeft, Award, Calendar, Trees } from 'lucide-react';
 import { useOrchardStore } from '../../stores/orchardStore';
 
@@ -45,8 +45,10 @@ export default function AccountAdoptionDetailPage() {
 
         <div className="space-y-6">
           {/* Certificate Card */}
-          <div className="bg-white p-8 md:p-10 rounded-softer shadow-card border-2 border-dawn-gold/40 text-center space-y-4 relative overflow-hidden">
-            <img src="/logo-dark.svg" alt="Kesari Van" className="h-16 w-auto mx-auto object-contain" />
+          <div className="bg-white p-8 md:p-10 rounded-softer shadow-card border-2 border-dawn-gold/40 text-center space-y-4 relative overflow-hidden animate-fade-in">
+            <div className="flex justify-center">
+              <BrandLogo variant="secondary" tone="dark" />
+            </div>
             <div className="w-12 h-12 rounded-full bg-dawn-gold/20 text-dawn-gold flex items-center justify-center mx-auto">
               <Award className="w-6 h-6" />
             </div>

@@ -5,6 +5,7 @@ import { NAV_ITEMS } from '../../lib/constants';
 import { useCartStore } from '../../stores/cartStore';
 import { useAuthStore } from '../../stores/authStore';
 import { Container } from '../ui/Container';
+import { BrandLogo } from '../ui/BrandLogo';
 import { AuthModal } from '../auth/AuthModal';
 
 export function Header() {
@@ -49,16 +50,15 @@ export function Header() {
       >
         <Container>
           <div className="flex items-center justify-between h-16 md:h-20">
-            {/* Logo */}
+            {/* Primary Logo */}
             <Link
               to="/"
-              className="flex items-center gap-2 group transition-opacity hover:opacity-90 py-1"
+              className="flex items-center group transition-opacity hover:opacity-95 py-1"
               aria-label="Kesari Van"
             >
-              <img
-                src={logoColor === 'text-white' ? '/logo-light.svg' : '/logo-dark.svg'}
-                alt="Kesari Van"
-                className="h-10 md:h-12 w-auto object-contain transition-all"
+              <BrandLogo
+                variant="primary"
+                tone={logoColor === 'text-white' ? 'light' : 'dark'}
               />
             </Link>
 

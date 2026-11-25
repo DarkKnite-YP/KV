@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate, Link } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Container, Button, Input, Select, Badge } from '../../components/ui';
 import { SEO } from '../../components/ui/SEO';
 import { AuthModal } from '../../components/auth/AuthModal';
@@ -7,7 +8,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { useOrchardStore } from '../../stores/orchardStore';
 import { supabase } from '../../lib/supabase';
 import { isRealSupabaseConfigured } from '../../lib/supabaseService';
-import { formatPrice, isValidMobile, isValidPincode } from '../../lib/utils';
+import { formatPrice, isValidMobile, isValidPincode, getTreePhotos } from '../../lib/utils';
 import { SERVICEABLE_STATES } from '../../lib/constants';
 import { Lock, ShieldCheck, ArrowLeft, TreeDeciduous, User } from 'lucide-react';
 
@@ -202,18 +203,44 @@ export default function AdoptionCheckoutPage() {
 
       <div className="pt-24 pb-20 bg-mango-cream">
         <Container>
-          <div className="max-w-reading mx-auto text-center mb-10">
+          <div className="max-w-reading mx-auto text-center mb-8">
             <h1 className="font-display text-4xl text-charcoal">Almost part of the orchard.</h1>
             <p className="font-body text-sm text-charcoal/60 mt-1">
               Confirm your tree selection and complete adoption for {pricingConfig.season}.
             </p>
+
+            {/* Goal-Gradient 3-Step Indicator */}
+            <div className="mt-6 flex items-center justify-center gap-2 sm:gap-4 text-xs font-body">
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${user ? 'bg-soft-sage/50 border-orchard-green/30 text-orchard-green font-semibold' : 'bg-orchard-green text-white border-orchard-green font-semibold'}`}>
+                <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">1</span>
+                <span>Account</span>
+              </div>
+              <span className="w-6 h-px bg-charcoal/20" />
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${user ? 'bg-orchard-green text-white border-orchard-green font-semibold shadow-sm' : 'bg-white border-charcoal/15 text-charcoal/50'}`}>
+                <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">2</span>
+                <span>Adopter Details</span>
+              </div>
+              <span className="w-6 h-px bg-charcoal/20" />
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-white border-charcoal/15 text-charcoal/50">
+                <span className="w-4 h-4 rounded-full bg-charcoal/5 flex items-center justify-center text-[10px]">3</span>
+                <span>Adopt</span>
+              </div>
+            </div>
           </div>
 
           <form onSubmit={handleCheckout} className="grid grid-cols-1 lg:grid-cols-12 gap-10 max-w-content mx-auto">
-            {/* Form Left */}
+            {/* Form Left (Directional Stepper Slide) */}
             <div className="lg:col-span-7 space-y-6">
+              <AnimatePresence mode="wait">
               {!user ? (
-                <div className="bg-white p-8 md:p-10 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6">
+                <motion.div
+                  key="adopt-step-auth"
+                  initial={{ opacity: 0, scale: 0.97, x: -24 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.97, x: -32 }}
+                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                  className="bg-white p-8 md:p-10 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6"
+                >
                   <div className="w-16 h-16 rounded-full bg-soft-sage/50 text-orchard-green flex items-center justify-center mx-auto">
                     <User className="w-8 h-8 text-orchard-green" />
                   </div>
@@ -244,9 +271,16 @@ export default function AdoptionCheckoutPage() {
                       Back to Tree Selection
                     </Button>
                   </div>
-                </div>
+                </motion.div>
               ) : (
-                <div className="bg-white p-6 md:p-8 rounded-softer shadow-card border border-charcoal/10 space-y-6">
+                <motion.div
+                  key="adopt-step-details"
+                  initial={{ opacity: 0, scale: 0.97, x: 32 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.97, x: 32 }}
+                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                  className="bg-white p-6 md:p-8 rounded-softer shadow-card border border-charcoal/10 space-y-6"
+                >
                   <h3 className="font-display text-2xl text-charcoal border-b border-charcoal/10 pb-4">
                     Adopter Details
                   </h3>
@@ -328,8 +362,9 @@ export default function AdoptionCheckoutPage() {
                       placeholder="395007"
                     />
                   </div>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
 
             {/* Summary Right */}
@@ -340,8 +375,12 @@ export default function AdoptionCheckoutPage() {
                 </h3>
 
                 <div className="flex gap-4 items-center p-4 bg-mango-cream/40 rounded-soft border border-charcoal/5">
-                  <div className="w-14 h-14 rounded-soft bg-soft-sage/40 flex items-center justify-center text-3xl flex-shrink-0">
-                    🌳
+                  <div className="w-16 h-16 rounded-soft bg-soft-sage/40 flex items-center justify-center text-3xl flex-shrink-0 overflow-hidden border border-charcoal/10">
+                    {getTreePhotos(tree)[0] ? (
+                      <img src={getTreePhotos(tree)[0]} alt={`Tree ${tree.tree_id}`} className="w-full h-full object-cover" />
+                    ) : (
+                      '🌳'
+                    )}
                   </div>
                   <div>
                     <Badge variant="gold" size="sm">{pricingConfig.season}</Badge>

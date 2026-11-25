@@ -1,9 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Hero, Section, SectionHeading, Button, Badge } from '../../components/ui';
+import { AnimatePresence, motion, useMotionValue, animate } from 'framer-motion';
+import { Hero, Section, SectionHeading, Button, Badge, Tooltip } from '../../components/ui';
 import { SEO } from '../../components/ui/SEO';
 import { useOrchardStore } from '../../stores/orchardStore';
-import { formatPrice } from '../../lib/utils';
+import { formatPrice, getTreePhotos } from '../../lib/utils';
+import { TreeImageSlider } from '../../components/adopt/TreeImageSlider';
 import {
   ChevronLeft,
   ChevronRight,
@@ -14,9 +16,10 @@ import {
   ShieldCheck,
   Scale,
   Sparkles,
-  Camera,
 } from 'lucide-react';
 import type { Tree } from '../../types/database';
+
+const TREES_PER_SCROLLER = 10;
 
 export default function AdoptPage() {
   const navigate = useNavigate();
@@ -25,8 +28,15 @@ export default function AdoptPage() {
   const [filter, setFilter] = useState<'all' | 'available' | 'adopted' | 'reserved'>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTree, setSelectedTree] = useState<Tree | null>(null);
+  const [batchIndex, setBatchIndex] = useState(0);
+  const [batchDirection, setBatchDirection] = useState(1);
 
   const carouselRef = useRef<HTMLDivElement>(null);
+  const scrollerPullX = useMotionValue(0);
+  const pullStartX = useRef<number | null>(null);
+  const pullLastX = useRef<number>(0);
+  const pullLastTime = useRef<number>(0);
+  const pullVelocity = useRef<number>(0);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(true);
   const [activeSlideIndex, setActiveSlideIndex] = useState(0);
@@ -47,6 +57,22 @@ export default function AdoptPage() {
     return true;
   });
 
+  const totalBatches = Math.max(1, Math.ceil(filteredTrees.length / TREES_PER_SCROLLER));
+  const safeBatchIndex = Math.min(batchIndex, totalBatches - 1);
+  const visibleBatchTrees = filteredTrees.slice(
+    safeBatchIndex * TREES_PER_SCROLLER,
+    (safeBatchIndex + 1) * TREES_PER_SCROLLER
+  );
+
+  // Reset batch to first set when filters/search change
+  useEffect(() => {
+    setBatchIndex(0);
+    setActiveSlideIndex(0);
+    if (carouselRef.current) {
+      carouselRef.current.scrollTo({ left: 0 });
+    }
+  }, [filter, searchQuery]);
+
   const totalCount = trees.length;
   const availableCount = trees.filter((t) => t.status === 'available').length;
   const adoptedCount = trees.filter((t) => t.status === 'adopted').length;
@@ -60,22 +86,74 @@ export default function AdoptPage() {
     setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 10);
 
     const totalScrollable = scrollWidth - clientWidth;
+    const dotCount = Math.max(1, visibleBatchTrees.length);
     if (totalScrollable > 0) {
       const progress = scrollLeft / totalScrollable;
-      setActiveSlideIndex(Math.min(5, Math.floor(progress * 6)));
+      setActiveSlideIndex(Math.min(dotCount - 1, Math.round(progress * (dotCount - 1))));
+    } else {
+      setActiveSlideIndex(0);
     }
   };
 
   useEffect(() => {
     handleScroll();
-  }, [filteredTrees]);
+  }, [filteredTrees.length, safeBatchIndex]);
 
   const scrollCarousel = (direction: 'left' | 'right') => {
     if (!carouselRef.current) return;
     const clientWidth = carouselRef.current.clientWidth;
-    // Scroll roughly 80% of visible container width per click
-    const scrollAmount = direction === 'left' ? -clientWidth * 0.75 : clientWidth * 0.75;
+    const scrollAmount = direction === 'left' ? -clientWidth * 0.8 : clientWidth * 0.8;
     carouselRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+  };
+
+  const handleSelectBatch = (idx: number) => {
+    setBatchDirection(idx >= batchIndex ? 1 : -1);
+    setBatchIndex(idx);
+    setActiveSlideIndex(0);
+    if (carouselRef.current) {
+      carouselRef.current.scrollTo({ left: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Carousel end-edge resistance + velocity-preserving spring back
+  const handleScrollerPointerDown = (e: React.PointerEvent) => {
+    pullStartX.current = e.clientX;
+    pullLastX.current = e.clientX;
+    pullLastTime.current = performance.now();
+    pullVelocity.current = 0;
+  };
+
+  const handleScrollerPointerMove = (e: React.PointerEvent) => {
+    if (pullStartX.current === null || !carouselRef.current) return;
+    const { scrollLeft, scrollWidth, clientWidth } = carouselRef.current;
+    const delta = e.clientX - pullStartX.current;
+    const now = performance.now();
+    const dt = Math.max(1, now - pullLastTime.current);
+    pullVelocity.current = ((e.clientX - pullLastX.current) / dt) * 1000;
+    pullLastX.current = e.clientX;
+    pullLastTime.current = now;
+
+    const atLeftEnd = scrollLeft <= 1 && delta > 0;
+    const atRightEnd = scrollLeft + clientWidth >= scrollWidth - 1 && delta < 0;
+    if (atLeftEnd || atRightEnd) {
+      const sign = delta >= 0 ? 1 : -1;
+      const abs = Math.abs(delta);
+      scrollerPullX.set(sign * (abs / (1 + abs * 0.014)));
+    } else if (scrollerPullX.get() !== 0) {
+      scrollerPullX.set(0);
+    }
+  };
+
+  const handleScrollerPointerEnd = () => {
+    pullStartX.current = null;
+    if (scrollerPullX.get() !== 0) {
+      animate(scrollerPullX, 0, {
+        type: 'spring',
+        duration: 0.5,
+        bounce: 0,
+        velocity: pullVelocity.current,
+      });
+    }
   };
 
   return (
@@ -208,10 +286,38 @@ export default function AdoptPage() {
             </div>
           </div>
 
+          {/* 10-Tree Batch Switcher */}
+          {totalBatches > 1 && (
+            <div className="flex flex-wrap items-center justify-center gap-1.5 mb-5">
+              {Array.from({ length: totalBatches }).map((_, idx) => {
+                const startNum = idx * TREES_PER_SCROLLER + 1;
+                const endNum = Math.min((idx + 1) * TREES_PER_SCROLLER, filteredTrees.length);
+                return (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectBatch(idx)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-body font-semibold transition-all ${
+                      safeBatchIndex === idx
+                        ? 'bg-orchard-green text-white shadow-sm'
+                        : 'bg-white border border-charcoal/15 text-charcoal/70 hover:border-orchard-green hover:text-orchard-green'
+                    }`}
+                  >
+                    {startNum}–{endNum}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
           {/* Carousel Navigation Header */}
           <div className="flex items-center justify-between mb-4 px-2">
             <span className="font-body text-xs text-charcoal/60">
-              Showing {filteredTrees.length} trees · Swipe or use arrows to explore grove
+              {filteredTrees.length > 0
+                ? `Showing ${safeBatchIndex * TREES_PER_SCROLLER + 1}–${
+                    safeBatchIndex * TREES_PER_SCROLLER + visibleBatchTrees.length
+                  } of ${filteredTrees.length} trees · Swipe to browse`
+                : 'No trees match your filter'}
             </span>
 
             <div className="flex items-center gap-2">
@@ -234,97 +340,161 @@ export default function AdoptPage() {
             </div>
           </div>
 
-          {/* Interactive Horizontal Carousel (~6 trees desktop, ~3 trees mobile) */}
-          <div
-            ref={carouselRef}
-            onScroll={handleScroll}
-            className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 pt-1 px-1 scroll-smooth"
-            style={{ scrollbarWidth: 'thin' }}
-          >
-            {filteredTrees.map((tree) => {
+          {/* 10-Tree Card Horizontal Scroller with directional stepper transitions & elastic boundary spring */}
+          <AnimatePresence mode="wait" custom={batchDirection}>
+            <motion.div
+              key={`batch-${safeBatchIndex}-${filter}-${searchQuery}`}
+              custom={batchDirection}
+              initial={{ opacity: 0, scale: 0.97, x: batchDirection * 36 }}
+              animate={{ opacity: 1, scale: 1, x: 0 }}
+              exit={{ opacity: 0, scale: 0.97, x: -batchDirection * 36 }}
+              transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+            >
+              <motion.div
+                ref={carouselRef}
+                onScroll={handleScroll}
+                style={{ x: scrollerPullX, scrollbarWidth: 'thin' }}
+                onPointerDown={handleScrollerPointerDown}
+                onPointerMove={handleScrollerPointerMove}
+                onPointerUp={handleScrollerPointerEnd}
+                onPointerCancel={handleScrollerPointerEnd}
+                className="flex gap-4 overflow-x-auto snap-x snap-mandatory pb-4 pt-1 px-1 scroll-smooth"
+              >
+                {visibleBatchTrees.map((tree) => {
               const isAvailable = tree.status === 'available';
               const isReserved = tree.status === 'reserved';
+              const treePhotos = getTreePhotos(tree);
 
               return (
                 <div
                   key={tree.id}
                   onClick={() => setSelectedTree(tree)}
-                  className={`flex-shrink-0 snap-start cursor-pointer rounded-soft p-3 bg-white border transition-all duration-200 hover:shadow-card-hover select-none ${
-                    // Sizing: ~3 per view on mobile/tablet (min-w 30-33%), ~6 per view on desktop (min-w 15.5%)
-                    'w-[calc(50%-0.5rem)] sm:w-[calc(33.333%-0.75rem)] md:w-[calc(25%-0.75rem)] lg:w-[calc(16.666%-0.85rem)]'
+                  className={`flex-shrink-0 snap-start cursor-pointer rounded-softer p-4 bg-white border flex flex-col justify-between transition-all duration-200 hover:shadow-card-hover select-none ${
+                    // Readable card width on medium phones (~82% width) up to desktop (~295px)
+                    'w-[82%] max-w-[330px] sm:w-[300px] md:w-[308px] lg:w-[295px]'
                   } ${
                     isAvailable
-                      ? 'border-charcoal/10 hover:border-orchard-green hover:-translate-y-0.5'
-                      : 'border-charcoal/5 opacity-75 bg-charcoal/5'
+                      ? 'border-charcoal/12 hover:border-orchard-green hover:-translate-y-0.5'
+                      : 'border-charcoal/10 opacity-85 bg-charcoal/[0.02]'
                   }`}
                 >
-                  {/* Tree Thumbnail / Photo */}
-                  <div className="aspect-square rounded-soft bg-soft-sage/20 border border-charcoal/5 flex items-center justify-center relative overflow-hidden mb-2.5">
-                    {tree.photo_url ? (
-                      <img
-                        src={tree.photo_url}
+                  <div>
+                    {/* Larger Sliding Tree Photo Gallery */}
+                    <div className="aspect-[4/3] rounded-soft bg-soft-sage/20 border border-charcoal/5 relative overflow-hidden mb-3.5">
+                      <TreeImageSlider
+                        photos={treePhotos}
                         alt={`Tree ${tree.tree_id}`}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
                       />
-                    ) : (
-                      <div className="flex flex-col items-center justify-center text-charcoal/70">
-                        <span className="text-3xl">🌳</span>
-                      </div>
-                    )}
 
-                    {/* Status Badge top right */}
-                    <div className="absolute top-1.5 right-1.5">
-                      <Badge
-                        variant={isAvailable ? 'green' : isReserved ? 'gold' : 'neutral'}
-                        size="sm"
+                      {/* Status Badge top right */}
+                      <div className="absolute top-2.5 right-2.5 z-10">
+                        <Badge
+                          variant={isAvailable ? 'green' : isReserved ? 'gold' : 'neutral'}
+                          size="sm"
+                        >
+                          {isAvailable ? 'Available' : isReserved ? 'Reserved' : 'Adopted'}
+                        </Badge>
+                      </div>
+                    </div>
+
+                    {/* Clear Details */}
+                    <div className="space-y-2 mb-4">
+                      <div className="flex items-center justify-between gap-2">
+                        <h4 className="font-display text-2xl font-bold text-charcoal leading-none">
+                          {tree.tree_id}
+                        </h4>
+                        <span className="font-body text-xs font-medium text-charcoal/60 bg-mango-cream px-2 py-0.5 rounded-full">
+                          {tree.variety}
+                        </span>
+                      </div>
+
+                      <p
+                        className="font-body text-xs text-charcoal/70 line-clamp-2 min-h-[2rem] leading-relaxed"
+                        title={tree.location_description || undefined}
                       >
-                        {isAvailable ? 'Available' : isReserved ? 'Reserved' : 'Adopted'}
-                      </Badge>
-                    </div>
+                        {tree.location_description || `Surat Orchard · Row ${tree.tree_id.slice(-2)}`}
+                      </p>
 
-                    {/* Tree photo indicator icon if photo exists */}
-                    {tree.photo_url && (
-                      <div className="absolute bottom-1.5 left-1.5 bg-black/60 rounded-full p-1 text-white">
-                        <Camera className="w-2.5 h-2.5" />
+                      <div className="pt-2 border-t border-charcoal/10 flex items-baseline justify-between">
+                        <div>
+                          <span className="font-body text-lg font-bold text-orchard-green">
+                            {formatPrice(tree.adoption_fee || pricingConfig.price)}
+                          </span>
+                          <span className="font-body text-[11px] text-charcoal/50 ml-1">/ season</span>
+                        </div>
+                        <Tooltip content="Minimum guaranteed harvest; eligible surplus also belongs to you">
+                          <span className="font-body text-xs text-charcoal/65 font-semibold underline decoration-dotted decoration-charcoal/30 underline-offset-2">
+                            {tree.min_guarantee_kg || pricingConfig.min_guarantee_kg} kg min.
+                          </span>
+                        </Tooltip>
                       </div>
-                    )}
+                    </div>
                   </div>
 
-                  {/* Card Metadata */}
-                  <div className="space-y-1">
-                    <div className="flex items-baseline justify-between">
-                      <h4 className="font-display text-base font-bold text-charcoal">{tree.tree_id}</h4>
-                      <span className="font-body text-[10px] text-charcoal/50">Row {tree.tree_id.slice(-2)}</span>
-                    </div>
-                    <p className="font-body text-[11px] text-charcoal/60 truncate" title={tree.location_description || undefined}>
-                      {tree.location_description || 'Surat Orchard Row'}
-                    </p>
-                    <div className="pt-1 border-t border-charcoal/5 flex items-center justify-between">
-                      <span className="font-body text-xs font-bold text-orchard-green">
-                        {formatPrice(tree.adoption_fee || pricingConfig.price)}
-                      </span>
-                      <span className="font-body text-[10px] text-charcoal/40 font-medium">
-                        {pricingConfig.min_guarantee_kg}kg min
-                      </span>
-                    </div>
-                  </div>
+                  {/* Single Adopt Button */}
+                  <Button
+                    type="button"
+                    variant={isAvailable ? 'gold' : 'outline'}
+                    size="md"
+                    fullWidth
+                    disabled={!isAvailable}
+                    className={isAvailable ? 'shadow-sm font-semibold' : 'opacity-60 cursor-not-allowed'}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (isAvailable) {
+                        navigate(`/adopt-a-tree/checkout?tree=${tree.tree_id}`);
+                      }
+                    }}
+                  >
+                    {isAvailable ? `Adopt ${tree.tree_id}` : isReserved ? 'Reserved' : 'Already Adopted'}
+                  </Button>
                 </div>
               );
             })}
-          </div>
+              </motion.div>
+            </motion.div>
+          </AnimatePresence>
 
-          {/* Carousel Progress Dots */}
-          <div className="flex justify-center items-center gap-1.5 mt-3">
-            {[0, 1, 2, 3, 4, 5].map((idx) => (
-              <span
-                key={idx}
-                className={`h-1.5 rounded-full transition-all duration-200 ${
-                  activeSlideIndex === idx ? 'w-6 bg-orchard-green' : 'w-1.5 bg-charcoal/20'
-                }`}
-              />
-            ))}
-          </div>
+          {/* 10-Card Carousel Progress Dots */}
+          {visibleBatchTrees.length > 1 && (
+            <div className="flex justify-center items-center gap-1.5 mt-3">
+              {visibleBatchTrees.map((t, idx) => (
+                <span
+                  key={t.id}
+                  className={`h-1.5 rounded-full transition-all duration-200 ${
+                    activeSlideIndex === idx ? 'w-6 bg-orchard-green' : 'w-1.5 bg-charcoal/20'
+                  }`}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Batch Next/Prev Footer Controls for easy hopping between 10-card sets */}
+          {totalBatches > 1 && (
+            <div className="flex items-center justify-center gap-3 mt-5">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={safeBatchIndex === 0}
+                onClick={() => handleSelectBatch(safeBatchIndex - 1)}
+              >
+                <ChevronLeft className="w-4 h-4 mr-1" /> Previous 10 Trees
+              </Button>
+              <span className="font-body text-xs text-charcoal/60 font-medium">
+                Set {safeBatchIndex + 1} of {totalBatches}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={safeBatchIndex >= totalBatches - 1}
+                onClick={() => handleSelectBatch(safeBatchIndex + 1)}
+              >
+                Next 10 Trees <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          )}
         </div>
       </Section>
 
@@ -335,52 +505,48 @@ export default function AdoptPage() {
           onClick={() => setSelectedTree(null)}
         >
           <div
-            className="bg-white rounded-softer shadow-elevated border border-charcoal/10 max-w-lg w-full p-6 md:p-8 relative space-y-6 my-auto"
+            className="bg-white rounded-softer shadow-elevated border border-charcoal/10 max-w-lg w-full p-6 md:p-8 relative space-y-5 my-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button
               onClick={() => setSelectedTree(null)}
-              className="absolute top-4 right-4 text-charcoal/50 hover:text-charcoal p-1.5 rounded-full hover:bg-charcoal/5 transition-colors"
+              className="absolute top-4 right-4 z-20 text-charcoal/60 hover:text-charcoal p-1.5 rounded-full bg-white/80 hover:bg-charcoal/5 transition-colors"
               aria-label="Close modal"
             >
               <X className="w-5 h-5" />
             </button>
 
+            {/* Larger Sliding Gallery in Modal */}
+            <div className="aspect-[4/3] w-full rounded-soft bg-soft-sage/30 border border-charcoal/10 overflow-hidden">
+              <TreeImageSlider
+                photos={getTreePhotos(selectedTree)}
+                alt={`Tree ${selectedTree.tree_id}`}
+                autoSlideIntervalMs={4000}
+              />
+            </div>
+
             {/* Tree Modal Header */}
-            <div className="flex items-start gap-4">
-              <div className="w-24 h-24 rounded-soft bg-soft-sage/40 border border-charcoal/10 flex items-center justify-center relative overflow-hidden flex-shrink-0">
-                {selectedTree.photo_url ? (
-                  <img
-                    src={selectedTree.photo_url}
-                    alt={`Tree ${selectedTree.tree_id}`}
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-5xl">🌳</span>
-                )}
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <Badge
+                  variant={
+                    selectedTree.status === 'available'
+                      ? 'green'
+                      : selectedTree.status === 'reserved'
+                      ? 'gold'
+                      : 'neutral'
+                  }
+                  size="sm"
+                >
+                  {selectedTree.status.toUpperCase()}
+                </Badge>
+                <span className="text-xs font-body text-charcoal/50 font-medium">
+                  {pricingConfig.season}
+                </span>
               </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <Badge
-                    variant={
-                      selectedTree.status === 'available'
-                        ? 'green'
-                        : selectedTree.status === 'reserved'
-                        ? 'gold'
-                        : 'neutral'
-                    }
-                    size="sm"
-                  >
-                    {selectedTree.status.toUpperCase()}
-                  </Badge>
-                  <span className="text-xs font-body text-charcoal/50 font-medium">
-                    {pricingConfig.season}
-                  </span>
-                </div>
-                <h3 className="font-display text-3xl text-charcoal">Tree {selectedTree.tree_id}</h3>
-                <p className="font-body text-xs text-charcoal/70">{selectedTree.location_description}</p>
-                <p className="font-body text-xs text-charcoal/50">Variety: {selectedTree.variety} · Surat Grove</p>
-              </div>
+              <h3 className="font-display text-3xl text-charcoal">Tree {selectedTree.tree_id}</h3>
+              <p className="font-body text-xs text-charcoal/70">{selectedTree.location_description}</p>
+              <p className="font-body text-xs text-charcoal/50">Variety: {selectedTree.variety} · Surat Grove</p>
             </div>
 
             {/* Inclusions & Guarantees */}

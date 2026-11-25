@@ -51,11 +51,13 @@ export function Accordion({
               />
             </button>
             <div
-              className={`overflow-hidden transition-all duration-200 ${
-                isOpen ? 'max-h-[2000px] pb-5' : 'max-h-0'
-              }`}
+              className="overflow-hidden transition-[height,opacity] duration-300 ease-out"
+              style={{
+                height: isOpen ? 'auto' : '0px',
+                opacity: isOpen ? 1 : 0,
+              }}
             >
-              <div className="font-body text-sm text-charcoal/70 leading-relaxed">
+              <div className="font-body text-sm text-charcoal/70 leading-relaxed pb-5">
                 {item.content}
               </div>
             </div>

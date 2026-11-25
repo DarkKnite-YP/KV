@@ -74,3 +74,26 @@ export function isValidMobile(mobile: string): boolean {
   return /^[6-9]\d{9}$/.test(mobile.replace(/\s/g, ''));
 }
 
+/**
+ * Normalize tree photos from either `photos` array or `photo_url` (including JSON-encoded arrays).
+ */
+export function getTreePhotos(tree?: { photo_url?: string | null; photos?: string[] | null } | null): string[] {
+  if (!tree) return [];
+  if (Array.isArray(tree.photos) && tree.photos.length > 0) {
+    return tree.photos.filter((u): u is string => typeof u === 'string' && u.trim().length > 0);
+  }
+  const raw = tree.photo_url?.trim();
+  if (!raw) return [];
+  if (raw.startsWith('[')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.filter((u): u is string => typeof u === 'string' && u.trim().length > 0);
+      }
+    } catch {
+      // fall through to single URL
+    }
+  }
+  return [raw];
+}
+

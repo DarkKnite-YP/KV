@@ -33,10 +33,10 @@ export default function HomePage() {
       {/* 2. Flower/Fruit Moment */}
       <Section background="cream" padding="default">
         <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, scale: 0.97, y: 14 }}
+          whileInView={{ opacity: 1, scale: 1, y: 0 }}
           viewport={{ once: true, margin: '-50px' }}
-          transition={{ duration: 0.6 }}
+          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           className="max-w-3xl mx-auto text-center space-y-6"
         >
           <div className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-soft-sage text-orchard-green mx-auto mb-2">
@@ -63,10 +63,10 @@ export default function HomePage() {
       <Section background="white" padding="default">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, scale: 0.97, x: -16 }}
+            whileInView={{ opacity: 1, scale: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="lg:col-span-6 space-y-6"
           >
             <Badge variant="gold" size="md">Authentic Variety</Badge>
@@ -86,10 +86,10 @@ export default function HomePage() {
             </div>
           </motion.div>
           <motion.div
-            initial={{ opacity: 0, x: 20 }}
-            whileInView={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, scale: 0.97, x: 16 }}
+            whileInView={{ opacity: 1, scale: 1, x: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             className="lg:col-span-6"
           >
             <div className="relative rounded-softer overflow-hidden shadow-elevated bg-soft-sage/40 aspect-[4/3] flex items-center justify-center p-8 border border-charcoal/10">
@@ -119,10 +119,10 @@ export default function HomePage() {
           {products.slice(0, 3).map((product, idx) => (
             <motion.div
               key={product.id}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, scale: 0.97, y: 14 }}
+              whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: idx * 0.15 }}
+              transition={{ duration: 0.45, delay: idx * 0.12, ease: [0.22, 1, 0.36, 1] }}
               className="flex flex-col h-full"
             >
               <Card hover padding="none" className="flex flex-col h-full bg-white border border-charcoal/10">

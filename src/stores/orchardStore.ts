@@ -161,6 +161,7 @@ interface OrchardState {
   updateTree: (treeId: string, updates: Partial<Tree>) => void;
   setTreeStatus: (treeId: string, status: Tree['status']) => void;
   updateTreePhoto: (treeId: string, photoUrl: string) => void;
+  updateTreePhotos: (treeId: string, photos: string[]) => void;
   setTreePrice: (treeId: string, feeInPaise: number) => void;
   reserveTree: (treeId: string, adopter: { name: string; phone: string; email?: string }) => void;
   adoptTree: (treeId: string, adopter: { name: string; phone: string; email?: string }) => void;
@@ -550,26 +551,43 @@ export const useOrchardStore = create<OrchardState>()(
       },
 
       updateTreePhoto: (treeId, photoUrl) => {
+        get().updateTreePhotos(treeId, photoUrl ? [photoUrl] : []);
+      },
+
+      updateTreePhotos: (treeId, photos) => {
+        const cleanPhotos = photos.filter((u): u is string => typeof u === 'string' && u.trim().length > 0);
+        const primaryUrl = cleanPhotos[0] || null;
+        const encodedFallbackUrl = cleanPhotos.length > 1 ? JSON.stringify(cleanPhotos) : primaryUrl;
+        const now = new Date().toISOString();
+
         set((state) => ({
           trees: state.trees.map((t) =>
-            t.tree_id === treeId ? { ...t, photo_url: photoUrl, updated_at: new Date().toISOString() } : t
+            t.tree_id === treeId ? { ...t, photo_url: primaryUrl, photos: cleanPhotos, updated_at: now } : t
           ),
         }));
 
         if (isRealSupabase()) {
           (supabase.from('trees') as any)
-            .update({ photo_url: photoUrl, updated_at: new Date().toISOString() })
+            .update({ photo_url: primaryUrl, photos: cleanPhotos, updated_at: now })
             .eq('tree_id', treeId)
-            .then(({ error }: any) => {
-              if (error) console.error(`Failed to update tree photo for ${treeId} in Supabase:`, error);
+            .then(async ({ error }: any) => {
+              if (error) {
+                // Fallback if `photos` column migration has not been applied yet
+                const { error: fallbackErr } = await (supabase.from('trees') as any)
+                  .update({ photo_url: encodedFallbackUrl, updated_at: now })
+                  .eq('tree_id', treeId);
+                if (fallbackErr) {
+                  console.error(`Failed to update tree photos for ${treeId} in Supabase:`, fallbackErr);
+                }
+              }
             });
         }
 
         get().logActivity({
-          action: 'Tree Photo Uploaded',
+          action: 'Tree Photos Updated',
           target_type: 'tree',
           target_id: treeId,
-          description: `Updated mobile photo for Tree ${treeId}`,
+          description: `Updated gallery (${cleanPhotos.length} photo${cleanPhotos.length === 1 ? '' : 's'}) for Tree ${treeId}`,
           admin_user: 'Admin',
         });
       },

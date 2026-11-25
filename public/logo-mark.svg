@@ -1,0 +1,19 @@
+<svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="kv-m" x1="20" y1="14" x2="46" y2="55" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#FFC837"/>
+      <stop offset="52%" stop-color="#FF8800"/>
+      <stop offset="100%" stop-color="#D95204"/>
+    </linearGradient>
+    <linearGradient id="kv-g" x1="10" y1="10" x2="54" y2="54" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#F3D88B"/>
+      <stop offset="100%" stop-color="#C89B2B"/>
+    </linearGradient>
+  </defs>
+  <path d="M12.5 34C11.5 21 20.5 10.5 33.5 10C43 9.6 51.5 15.5 54 24.5" stroke="url(#kv-g)" stroke-width="2.2" stroke-linecap="round" opacity="0.9"/>
+  <path d="M32 15.5C31.5 11 29.5 8 26.5 6.8" stroke="url(#kv-g)" stroke-width="2.4" stroke-linecap="round"/>
+  <path d="M32.5 15.5C34 9.5 40.5 6 48 7.5C45 13.5 39 16.5 32.5 15.5Z" fill="#2D5A3F"/>
+  <path d="M33 15.5C43.8 15.5 50.8 24.2 50 35.8C49.2 46.2 40.5 54.5 29.2 55.2C22.4 55.6 18.4 51.4 21.6 47.4C24.5 43.8 22.8 39.2 20.4 34.4C16.8 25.8 22.4 15.5 33 15.5Z" fill="url(#kv-m)"/>
+  <path d="M27.2 21.8C23.5 25.4 23.2 31.8 26.2 36.8" stroke="#FFF4D6" stroke-width="2.2" stroke-linecap="round" opacity="0.72"/>
+  <path d="M52.5 10.5L53.8 13.4L56.7 14.7L53.8 16L52.5 18.9L51.2 16L48.3 14.7L51.2 13.4Z" fill="url(#kv-g)"/>
+</svg>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuthStore } from '../../stores/authStore';
-import { Button, Input } from '../ui';
+import { Button, Input, BrandLogo } from '../ui';
 import { X, Lock, Mail, User, ShieldCheck } from 'lucide-react';
 
 interface AuthModalProps {
@@ -26,6 +26,7 @@ export function AuthModal({
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [infoMessage, setInfoMessage] = useState('');
+  const [shakeKey, setShakeKey] = useState(0);
 
   const { setUser, setSession, setProfile } = useAuthStore();
 
@@ -99,6 +100,7 @@ export function AuthModal({
         }
       } catch (err: any) {
         setErrorMessage(err.message || 'Authentication failed. Please verify credentials.');
+        setShakeKey((k) => k + 1);
       } finally {
         setIsLoading(false);
       }
@@ -146,8 +148,10 @@ export function AuthModal({
           <X className="w-5 h-5" />
         </button>
 
-        <div className="text-center space-y-1">
-          <img src="/logo-dark.svg" alt="Kesari Van" className="h-12 w-auto mx-auto mb-2 object-contain" />
+        <div className="text-center space-y-2">
+          <div className="flex justify-center mb-1">
+            <BrandLogo variant="secondary" tone="dark" />
+          </div>
           <h3 className="font-display text-3xl text-charcoal">
             {mode === 'login' ? 'Welcome to the Orchard' : 'Create an Account'}
           </h3>
@@ -214,7 +218,12 @@ export function AuthModal({
             type="password"
             required
             value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            onChange={(e) => {
+              setPassword(e.target.value);
+              if (errorMessage) setErrorMessage('');
+            }}
+            shakeKey={shakeKey}
+            error={errorMessage && mode === 'login' ? ' ' : undefined}
             placeholder="••••••••"
           />
 

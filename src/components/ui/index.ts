@@ -11,4 +11,6 @@ export { Badge } from './Badge';
 export { Accordion } from './Accordion';
 export { LoadingSpinner, PageLoading } from './LoadingSpinner';
 export { EmptyState } from './EmptyState';
+export { BrandLogo } from './BrandLogo';
+export { Tooltip } from './Tooltip';
 

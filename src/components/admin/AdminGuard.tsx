@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ShieldAlert, ShieldCheck, Lock, KeyRound, ArrowLeft, LogOut, Loader2, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { supabase } from '../../lib/supabase';
-import { Button, Input, Badge } from '../ui';
+import { Button, Input, Badge, BrandLogo } from '../ui';
 
 interface AdminGuardProps {
   children: React.ReactNode;
@@ -33,6 +33,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
 
   const [enteredPin, setEnteredPin] = useState('');
   const [pinError, setPinError] = useState('');
+  const [pinShakeKey, setPinShakeKey] = useState(0);
   const [remember24h, setRemember24h] = useState(true);
 
   // Email / Password login states for unauthenticated admin
@@ -41,6 +42,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [loginError, setLoginError] = useState('');
+  const [loginShakeKey, setLoginShakeKey] = useState(0);
 
   // Check Supabase authorization
   const isAuthorizedAdmin = Boolean(
@@ -69,6 +71,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
     } else {
       setPinError('Incorrect Master Security PIN. Please try again.');
       setEnteredPin('');
+      setPinShakeKey((k) => k + 1);
     }
   }
 
@@ -85,9 +88,11 @@ export default function AdminGuard({ children }: AdminGuardProps) {
 
       if (error) {
         setLoginError(error.message);
+        setLoginShakeKey((k) => k + 1);
       }
     } catch (err: any) {
       setLoginError(err.message || 'Authentication failed');
+      setLoginShakeKey((k) => k + 1);
     } finally {
       setIsLoggingIn(false);
     }
@@ -134,7 +139,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
       <div className="min-h-screen bg-mango-cream flex items-center justify-center p-4 md:p-8">
         <div className="bg-white rounded-softer shadow-card border border-charcoal/10 max-w-md w-full p-8 md:p-10 space-y-6 text-center animate-fade-in">
           <Link to="/" className="inline-block hover:opacity-90 transition-opacity">
-            <img src="/logo-dark.svg" alt="Kesari Van" className="h-14 w-auto mx-auto object-contain" />
+            <BrandLogo variant="secondary" tone="dark" />
           </Link>
 
           <div className="space-y-2">
@@ -198,16 +203,21 @@ export default function AdminGuard({ children }: AdminGuardProps) {
               placeholder="admin@kesarivan.in"
             />
 
-            <div className="space-y-1">
+            <div key={loginShakeKey > 0 ? `login-shake-${loginShakeKey}` : undefined} className={`space-y-1 ${loginShakeKey > 0 ? 'animate-kv-shake' : ''}`}>
               <label className="block text-xs font-medium text-charcoal/70">Admin Password</label>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
                   required
                   value={adminPassword}
-                  onChange={(e) => setAdminPassword(e.target.value)}
+                  onChange={(e) => {
+                    setAdminPassword(e.target.value);
+                    if (loginError) setLoginError('');
+                  }}
                   placeholder="••••••••••••"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-soft border border-charcoal/20 focus:outline-none focus:border-orchard-green"
+                  className={`w-full px-3.5 py-2.5 text-sm rounded-soft border focus:outline-none transition-colors ${
+                    loginError ? 'border-red-500 focus:border-red-500' : 'border-charcoal/20 focus:border-orchard-green'
+                  }`}
                 />
                 <button
                   type="button"
@@ -302,7 +312,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
           </div>
 
           <form onSubmit={handleVerifyPin} className="space-y-4">
-            <div>
+            <div key={pinShakeKey > 0 ? `pin-shake-${pinShakeKey}` : undefined} className={pinShakeKey > 0 ? 'animate-kv-shake' : ''}>
               <input
                 type="password"
                 inputMode="numeric"
@@ -310,9 +320,14 @@ export default function AdminGuard({ children }: AdminGuardProps) {
                 required
                 autoFocus
                 value={enteredPin}
-                onChange={(e) => setEnteredPin(e.target.value)}
+                onChange={(e) => {
+                  setEnteredPin(e.target.value);
+                  if (pinError) setPinError('');
+                }}
                 placeholder="Enter Master PIN"
-                className="w-full text-center tracking-[0.4em] font-mono text-xl py-3 px-4 rounded-soft border border-charcoal/20 focus:outline-none focus:border-orchard-green bg-charcoal/5"
+                className={`w-full text-center tracking-[0.4em] font-mono text-xl py-3 px-4 rounded-soft border focus:outline-none transition-colors ${
+                  pinError ? 'border-red-500 bg-red-50/40 focus:border-red-500' : 'border-charcoal/20 focus:border-orchard-green bg-charcoal/5'
+                }`}
               />
               {pinError && <p className="text-xs text-red-600 font-body mt-2">{pinError}</p>}
             </div>

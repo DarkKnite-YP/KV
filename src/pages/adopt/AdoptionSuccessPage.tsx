@@ -1,6 +1,6 @@
 import React from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Container, Button, Badge } from '../../components/ui';
+import { Container, Button, Badge, BrandLogo } from '../../components/ui';
 import { SEO } from '../../components/ui/SEO';
 import { CheckCircle2, ArrowRight } from 'lucide-react';
 
@@ -15,8 +15,10 @@ export default function AdoptionSuccessPage() {
 
       <div className="pt-28 pb-20 bg-mango-cream">
         <Container narrow>
-          <div className="bg-white p-8 md:p-12 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6">
-            <img src="/logo-dark.svg" alt="Kesari Van" className="h-14 w-auto mx-auto object-contain" />
+          <div className="bg-white p-8 md:p-12 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6 animate-fade-in">
+            <div className="flex justify-center">
+              <BrandLogo variant="secondary" tone="dark" />
+            </div>
             <div className="w-16 h-16 rounded-full bg-soft-sage text-orchard-green flex items-center justify-center mx-auto">
               <CheckCircle2 className="w-10 h-10" />
             </div>

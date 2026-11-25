@@ -4,14 +4,15 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
   error?: string;
   hint?: string;
+  shakeKey?: number;
 }
 
 export const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ label, error, hint, className = '', id, ...props }, ref) => {
+  ({ label, error, hint, shakeKey = 0, className = '', id, ...props }, ref) => {
     const inputId = id || label.toLowerCase().replace(/\s+/g, '-');
 
     return (
-      <div className="space-y-1.5">
+      <div key={shakeKey > 0 ? `shake-${shakeKey}` : undefined} className={`space-y-1.5 ${shakeKey > 0 ? 'animate-kv-shake' : ''}`}>
         <label
           htmlFor={inputId}
           className="block font-body text-sm font-medium text-charcoal"

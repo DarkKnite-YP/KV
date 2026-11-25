@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { FOOTER_LINKS, BRAND } from '../../lib/constants';
 import { Container } from '../ui/Container';
+import { BrandLogo } from '../ui/BrandLogo';
 
 export function Footer() {
   const currentYear = new Date().getFullYear();
@@ -12,18 +13,14 @@ export function Footer() {
       <div className="py-16 md:py-20">
         <Container>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10 lg:gap-8">
-            {/* Brand Column */}
+            {/* Brand Column (Secondary Stacked Crest Logo) */}
             <div className="lg:col-span-1">
               <Link
                 to="/"
-                className="inline-block hover:opacity-90 transition-opacity mb-2"
+                className="inline-block hover:opacity-95 transition-opacity mb-3"
                 aria-label="Kesari Van"
               >
-                <img
-                  src="/logo-light.svg"
-                  alt="Kesari Van"
-                  className="h-14 w-auto object-contain"
-                />
+                <BrandLogo variant="secondary" tone="light" className="!items-start !text-left" />
               </Link>
               <p className="font-body text-sm text-white/60 mt-2 leading-relaxed max-w-xs">
                 A mango orchard in Surat, Gujarat. Growing Gir Kesar with care,

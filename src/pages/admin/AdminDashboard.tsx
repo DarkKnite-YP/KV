@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { SEO } from '../../components/ui/SEO';
-import { Badge, Button } from '../../components/ui';
+import { Badge, Button, BrandLogo } from '../../components/ui';
 import { useOrchardStore, type HarvestOrderItem, type OrchardVisitItem, type PackagingItem } from '../../stores/orchardStore';
-import { formatPrice, formatDate, formatDateShort } from '../../lib/utils';
+import { formatPrice, formatDate, formatDateShort, getTreePhotos } from '../../lib/utils';
 import { compressImage } from '../../lib/imageCompression';
 import {
   LayoutDashboard,
@@ -43,6 +43,7 @@ import {
   MapPin,
   MessageSquare,
   Lock,
+  Star,
   Database as DatabaseIcon,
 } from 'lucide-react';
 import type { Product, Tree, JournalArticle } from '../../types/database';
@@ -74,7 +75,7 @@ export default function AdminDashboard() {
     trees,
     updateTree,
     setTreeStatus,
-    updateTreePhoto,
+    updateTreePhotos,
     setTreePrice,
     pricingConfig,
     updateAdoptionPricing,
@@ -112,8 +113,10 @@ export default function AdminDashboard() {
 
   // Modal States
   const [selectedTreeForPhoto, setSelectedTreeForPhoto] = useState<Tree | null>(null);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [compressedFileStats, setCompressedFileStats] = useState<{ origKB: number; compKB: number } | null>(null);
+  const [photoGallery, setPhotoGallery] = useState<string[]>([]);
+  const [activePhotoIndex, setActivePhotoIndex] = useState<number>(0);
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
+  const [compressedFileStats, setCompressedFileStats] = useState<{ origKB: number; compKB: number; count: number } | null>(null);
   const [isCompressing, setIsCompressing] = useState(false);
   const [selectedTreeForAdopter, setSelectedTreeForAdopter] = useState<Tree | null>(null);
 
@@ -227,37 +230,78 @@ export default function AdminDashboard() {
 
   const unreadEnquiryCount = (enquiries || []).filter((e) => e.status === 'new' || !e.is_read).length;
 
-  // Handle Photo File Selection & Client-Side Compression
+  // Handle Multiple Photo File Selection & Client-Side Compression
   async function handlePhotoFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file || !selectedTreeForPhoto) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0 || !selectedTreeForPhoto) return;
 
     try {
       setIsCompressing(true);
-      const origKB = Math.round(file.size / 1024);
+      let totalOrigKB = 0;
+      let totalCompKB = 0;
+      const newlyCompressed: string[] = [];
 
-      // Client-side WebP compression targeting ~200-300 KB
-      const { dataUrl, sizeKB } = await compressImage(file, {
-        maxWidth: 1200,
-        maxHeight: 1200,
-        quality: 0.82,
+      for (const file of files) {
+        totalOrigKB += Math.round(file.size / 1024);
+        const { dataUrl, sizeKB } = await compressImage(file, {
+          maxWidth: 1200,
+          maxHeight: 1200,
+          quality: 0.82,
+        });
+        totalCompKB += sizeKB;
+        newlyCompressed.push(dataUrl);
+      }
+
+      setPhotoGallery((prev) => {
+        const next = [...prev, ...newlyCompressed];
+        setActivePhotoIndex(prev.length);
+        return next;
       });
-
-      setPhotoPreview(dataUrl);
-      setCompressedFileStats({ origKB, compKB: sizeKB });
+      setCompressedFileStats({ origKB: totalOrigKB, compKB: totalCompKB, count: files.length });
       setIsCompressing(false);
+      e.target.value = '';
     } catch (err: any) {
       alert(`Image processing failed: ${err.message}`);
       setIsCompressing(false);
     }
   }
 
-  // Save Compressed Photo to Store
+  function handleAddPhotoUrl() {
+    const trimmed = photoUrlInput.trim();
+    if (!trimmed) return;
+    setPhotoGallery((prev) => {
+      const next = [...prev, trimmed];
+      setActivePhotoIndex(prev.length);
+      return next;
+    });
+    setPhotoUrlInput('');
+  }
+
+  function handleRemoveGalleryPhoto(idx: number) {
+    setPhotoGallery((prev) => {
+      const next = prev.filter((_, i) => i !== idx);
+      setActivePhotoIndex((curr) => Math.max(0, Math.min(curr, next.length - 1)));
+      return next;
+    });
+  }
+
+  function handleSetCoverPhoto(idx: number) {
+    setPhotoGallery((prev) => {
+      if (idx <= 0 || idx >= prev.length) return prev;
+      const selected = prev[idx];
+      return [selected, ...prev.filter((_, i) => i !== idx)];
+    });
+    setActivePhotoIndex(0);
+  }
+
+  // Save Photo Gallery to Store & Supabase
   function handleSavePhoto() {
-    if (!selectedTreeForPhoto || !photoPreview) return;
-    updateTreePhoto(selectedTreeForPhoto.tree_id, photoPreview);
+    if (!selectedTreeForPhoto) return;
+    updateTreePhotos(selectedTreeForPhoto.tree_id, photoGallery);
     setSelectedTreeForPhoto(null);
-    setPhotoPreview(null);
+    setPhotoGallery([]);
+    setActivePhotoIndex(0);
+    setPhotoUrlInput('');
     setCompressedFileStats(null);
   }
 
@@ -403,10 +447,11 @@ export default function AdminDashboard() {
 
       {/* Main Admin UI */}
       <div className="min-h-screen bg-mango-cream flex flex-col md:flex-row print:hidden">
-        {/* Mobile Header */}
+        {/* Mobile Header (Brand Mark tier for compact mobile bar) */}
         <div className="md:hidden bg-deep-forest text-white px-4 py-2.5 flex items-center justify-between shadow-md">
-          <Link to="/" className="flex items-center gap-2" aria-label="Kesari Van Home">
-            <img src="/logo-light.svg" alt="Kesari Van" className="h-9 w-auto object-contain" />
+          <Link to="/" className="flex items-center gap-2.5" aria-label="Kesari Van Home">
+            <BrandLogo variant="mark" className="w-8 h-8" />
+            <span className="font-display text-lg tracking-wider uppercase text-mango-cream">Kesari Van</span>
           </Link>
           <button
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -425,10 +470,10 @@ export default function AdminDashboard() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <Link to="/" className="block hover:opacity-90 transition-opacity" aria-label="Kesari Van Home">
-                <img src="/logo-light.svg" alt="Kesari Van" className="h-11 w-auto object-contain" />
+              <Link to="/" className="block hover:opacity-95 transition-opacity" aria-label="Kesari Van Home">
+                <BrandLogo variant="primary" tone="light" showTagline={false} />
               </Link>
-              <span className="font-body text-[10px] text-dawn-gold tracking-widest uppercase block font-semibold mt-1">
+              <span className="font-body text-[10px] text-dawn-gold tracking-widest uppercase block font-semibold mt-1.5">
                 Central Orchard Ops
               </span>
             </div>
@@ -711,13 +756,17 @@ export default function AdminDashboard() {
                   </Button>
                   <Button
                     onClick={() => {
-                      setSelectedTreeForPhoto(trees[0]);
-                      setPhotoPreview(null);
+                      const firstTree = trees[0];
+                      setSelectedTreeForPhoto(firstTree);
+                      setPhotoGallery(getTreePhotos(firstTree));
+                      setActivePhotoIndex(0);
+                      setPhotoUrlInput('');
+                      setCompressedFileStats(null);
                     }}
                     variant="outline"
                     size="sm"
                   >
-                    <Camera className="w-3.5 h-3.5 mr-1" /> Upload Tree Photo
+                    <Camera className="w-3.5 h-3.5 mr-1" /> Upload Tree Photos
                   </Button>
                   <Button onClick={() => setActiveTab('orders')} variant="outline" size="sm">
                     <ShoppingBag className="w-3.5 h-3.5 mr-1" /> View Harvest Orders
@@ -1017,17 +1066,26 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-charcoal/5">
-                      {filteredTrees.map((tree) => (
+                      {filteredTrees.map((tree) => {
+                        const treePhotos = getTreePhotos(tree);
+                        return (
                         <tr key={tree.id} className="hover:bg-mango-cream/20 transition-colors">
                           <td className="py-3 px-4 font-bold text-charcoal">{tree.tree_id}</td>
                           <td className="py-3 px-4">
-                            <div className="w-10 h-10 rounded-soft bg-soft-sage/30 flex items-center justify-center overflow-hidden border border-charcoal/10">
-                              {tree.photo_url ? (
-                                <img
-                                  src={tree.photo_url}
-                                  alt={tree.tree_id}
-                                  className="w-full h-full object-cover"
-                                />
+                            <div className="relative w-12 h-10 rounded-soft bg-soft-sage/30 flex items-center justify-center overflow-hidden border border-charcoal/10">
+                              {treePhotos.length > 0 ? (
+                                <>
+                                  <img
+                                    src={treePhotos[0]}
+                                    alt={tree.tree_id}
+                                    className="w-full h-full object-cover"
+                                  />
+                                  {treePhotos.length > 1 && (
+                                    <span className="absolute bottom-0.5 right-0.5 bg-black/75 text-white text-[9px] font-bold px-1 rounded">
+                                      +{treePhotos.length - 1}
+                                    </span>
+                                  )}
+                                </>
                               ) : (
                                 <span className="text-lg">🌳</span>
                               )}
@@ -1067,17 +1125,22 @@ export default function AdminDashboard() {
                           </td>
                           <td className="py-3 px-4 text-right">
                             <div className="flex items-center justify-end gap-1.5">
-                              {/* Upload/Change Photo Button */}
+                              {/* Upload/Manage Multiple Photos Button */}
                               <button
                                 onClick={() => {
                                   setSelectedTreeForPhoto(tree);
-                                  setPhotoPreview(tree.photo_url || null);
+                                  setPhotoGallery(getTreePhotos(tree));
+                                  setActivePhotoIndex(0);
+                                  setPhotoUrlInput('');
                                   setCompressedFileStats(null);
                                 }}
-                                className="p-1.5 text-charcoal/60 hover:text-orchard-green hover:bg-soft-sage/30 rounded"
-                                title="Upload or Take Photo"
+                                className="p-1.5 text-charcoal/60 hover:text-orchard-green hover:bg-soft-sage/30 rounded flex items-center gap-1"
+                                title="Upload or Manage Tree Photos"
                               >
                                 <Camera className="w-4 h-4" />
+                                {treePhotos.length > 0 && (
+                                  <span className="text-[10px] font-semibold text-orchard-green">{treePhotos.length}</span>
+                                )}
                               </button>
 
                               {/* Quick Status Cycle / Select */}
@@ -1094,7 +1157,8 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
@@ -1936,19 +2000,26 @@ export default function AdminDashboard() {
       </div>
 
       {/* ========================================================================= */}
-      {/* MODAL: MOBILE CAMERA / TREE PHOTO UPLOAD (Section 4 & 6) */}
+      {/* MODAL: MULTI-PHOTO TREE GALLERY UPLOAD & MANAGER */}
       {/* ========================================================================= */}
       {selectedTreeForPhoto && (
-        <div className="fixed inset-0 z-50 bg-charcoal/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-softer shadow-elevated border border-charcoal/10 max-w-md w-full p-6 space-y-5 animate-fade-in">
+        <div className="fixed inset-0 z-50 bg-charcoal/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-softer shadow-elevated border border-charcoal/10 max-w-lg w-full p-6 space-y-4 animate-fade-in my-auto">
             <div className="flex justify-between items-center border-b border-charcoal/10 pb-3">
-              <h3 className="font-display text-2xl text-charcoal">
-                Tree Photo — {selectedTreeForPhoto.tree_id}
-              </h3>
+              <div>
+                <h3 className="font-display text-2xl text-charcoal">
+                  Tree Gallery — {selectedTreeForPhoto.tree_id}
+                </h3>
+                <p className="font-body text-[11px] text-charcoal/60">
+                  {photoGallery.length} photo{photoGallery.length === 1 ? '' : 's'} attached · Users can slide through all uploaded images
+                </p>
+              </div>
               <button
                 onClick={() => {
                   setSelectedTreeForPhoto(null);
-                  setPhotoPreview(null);
+                  setPhotoGallery([]);
+                  setActivePhotoIndex(0);
+                  setPhotoUrlInput('');
                 }}
                 className="text-charcoal/50 hover:text-charcoal"
               >
@@ -1957,59 +2028,129 @@ export default function AdminDashboard() {
             </div>
 
             <p className="font-body text-xs text-charcoal/60">
-              Take a photo using your phone camera or select an image file. It will be automatically compressed to WebP/JPEG (~200–300 KB) before saving.
+              Select multiple photos at once or add more images over time. Each upload is automatically compressed to WebP (~200–300 KB).
             </p>
 
-            {/* Hidden native input with mobile camera capture support */}
+            {/* Hidden native multi-file input */}
             <input
               type="file"
               ref={fileInputRef}
               accept="image/*"
-              capture="environment"
+              multiple
               onChange={handlePhotoFileChange}
               className="hidden"
             />
 
-            {/* Image Preview Area */}
-            <div className="aspect-square bg-soft-sage/30 rounded-soft border-2 border-dashed border-charcoal/20 flex flex-col items-center justify-center relative overflow-hidden">
-              {photoPreview ? (
-                <img
-                  src={photoPreview}
-                  alt="Tree preview"
-                  className="w-full h-full object-cover"
-                />
+            {/* Main Active Image Preview */}
+            <div className="aspect-[4/3] bg-soft-sage/30 rounded-soft border-2 border-dashed border-charcoal/20 flex flex-col items-center justify-center relative overflow-hidden">
+              {photoGallery[activePhotoIndex] ? (
+                <>
+                  <img
+                    src={photoGallery[activePhotoIndex]}
+                    alt={`Tree ${selectedTreeForPhoto.tree_id} preview ${activePhotoIndex + 1}`}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute top-2 left-2 bg-black/65 text-white text-[10px] font-body px-2 py-0.5 rounded-full">
+                    {activePhotoIndex === 0 ? 'Cover Photo (1st slide)' : `Slide ${activePhotoIndex + 1} of ${photoGallery.length}`}
+                  </div>
+                  <div className="absolute top-2 right-2 flex items-center gap-1.5">
+                    {activePhotoIndex > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleSetCoverPhoto(activePhotoIndex)}
+                        className="bg-white/90 hover:bg-white text-charcoal text-[10px] font-semibold px-2 py-1 rounded-full shadow flex items-center gap-1"
+                        title="Make this the first cover slide"
+                      >
+                        <Star className="w-3 h-3 text-dawn-gold fill-dawn-gold" /> Make Cover
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveGalleryPhoto(activePhotoIndex)}
+                      className="bg-red-600/90 hover:bg-red-600 text-white p-1.5 rounded-full shadow"
+                      title="Delete this photo"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </>
               ) : (
                 <div className="text-center p-6 space-y-2">
                   <Camera className="w-10 h-10 text-charcoal/40 mx-auto" />
-                  <p className="font-body text-xs text-charcoal/60">No photo selected yet</p>
+                  <p className="font-body text-xs text-charcoal/60">No photos uploaded for this tree yet</p>
                 </div>
               )}
 
               {isCompressing && (
-                <div className="absolute inset-0 bg-charcoal/50 flex flex-col items-center justify-center text-white space-y-2">
+                <div className="absolute inset-0 bg-charcoal/60 flex flex-col items-center justify-center text-white space-y-2">
                   <RefreshCw className="w-8 h-8 animate-spin" />
-                  <p className="text-xs font-semibold">Compressing image...</p>
+                  <p className="text-xs font-semibold">Compressing selected images...</p>
                 </div>
               )}
             </div>
 
+            {/* Thumbnail Strip for All Gallery Images */}
+            {photoGallery.length > 0 && (
+              <div className="flex items-center gap-2 overflow-x-auto pb-1">
+                {photoGallery.map((img, idx) => (
+                  <div
+                    key={`${idx}-${img.slice(0, 20)}`}
+                    onClick={() => setActivePhotoIndex(idx)}
+                    className={`relative w-16 h-16 flex-shrink-0 rounded-soft overflow-hidden border-2 cursor-pointer transition-all ${
+                      activePhotoIndex === idx ? 'border-orchard-green ring-2 ring-orchard-green/25' : 'border-charcoal/15 opacity-75 hover:opacity-100'
+                    }`}
+                  >
+                    <img src={img} alt={`Thumb ${idx + 1}`} className="w-full h-full object-cover" />
+                    {idx === 0 && (
+                      <span className="absolute bottom-0 inset-x-0 bg-orchard-green/85 text-white text-[9px] text-center font-semibold">
+                        Cover
+                      </span>
+                    )}
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-16 h-16 flex-shrink-0 rounded-soft border-2 border-dashed border-charcoal/25 hover:border-orchard-green flex flex-col items-center justify-center text-charcoal/60 hover:text-orchard-green transition-colors"
+                  title="Add more photos"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span className="text-[9px] font-semibold mt-0.5">Add</span>
+                </button>
+              </div>
+            )}
+
+            {/* Add by Image URL (optional) */}
+            <div className="flex gap-2">
+              <input
+                type="url"
+                value={photoUrlInput}
+                onChange={(e) => setPhotoUrlInput(e.target.value)}
+                placeholder="Or paste image URL (https://...)"
+                className="flex-1 px-3 py-1.5 text-xs font-body rounded-soft border border-charcoal/20 focus:outline-none focus:border-orchard-green"
+              />
+              <Button type="button" onClick={handleAddPhotoUrl} variant="outline" size="sm" disabled={!photoUrlInput.trim()}>
+                Add URL
+              </Button>
+            </div>
+
             {/* Compression Stats */}
             {compressedFileStats && (
-              <div className="p-3 bg-emerald-50 rounded-soft border border-emerald-200 text-xs font-body text-emerald-800 flex justify-between">
-                <span>Original: {compressedFileStats.origKB} KB</span>
-                <span className="font-bold">Compressed: {compressedFileStats.compKB} KB (WebP)</span>
+              <div className="p-2.5 bg-emerald-50 rounded-soft border border-emerald-200 text-xs font-body text-emerald-800 flex justify-between">
+                <span>Added {compressedFileStats.count} file{compressedFileStats.count === 1 ? '' : 's'} ({compressedFileStats.origKB} KB orig)</span>
+                <span className="font-bold">Compressed: {compressedFileStats.compKB} KB</span>
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex gap-3">
+            <div className="flex gap-3 pt-1">
               <Button
                 onClick={() => fileInputRef.current?.click()}
                 variant="outline"
                 size="sm"
                 fullWidth
               >
-                <Camera className="w-4 h-4 mr-1.5" /> Choose / Take Photo
+                <Upload className="w-4 h-4 mr-1.5" /> Add Photos (Multi-Select)
               </Button>
 
               <Button
@@ -2017,9 +2158,9 @@ export default function AdminDashboard() {
                 variant="primary"
                 size="sm"
                 fullWidth
-                disabled={!photoPreview || isCompressing}
+                disabled={isCompressing}
               >
-                Save Photo
+                Save Gallery ({photoGallery.length})
               </Button>
             </div>
           </div>

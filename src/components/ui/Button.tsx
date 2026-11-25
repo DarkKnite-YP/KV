@@ -11,7 +11,7 @@ interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
 }
 
 const baseStyles =
-  'inline-flex items-center justify-center font-body font-medium transition-all duration-200 rounded-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orchard-green disabled:opacity-50 disabled:cursor-not-allowed select-none';
+  'inline-flex items-center justify-center font-body font-medium transition-[scale,transform,background-color,color,border-color,box-shadow] duration-150 ease-out active:scale-[0.97] rounded-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-orchard-green disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100 select-none';
 
 const variants = {
   primary:

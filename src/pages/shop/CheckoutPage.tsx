@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Container, Button, Input, Select, Badge } from '../../components/ui';
 import { SEO } from '../../components/ui/SEO';
 import { AuthModal } from '../../components/auth/AuthModal';
@@ -217,18 +218,44 @@ export default function CheckoutPage() {
 
       <div className="pt-24 pb-20 bg-mango-cream">
         <Container>
-          <div className="max-w-reading mx-auto text-center mb-10">
+          <div className="max-w-reading mx-auto text-center mb-8">
             <h1 className="font-display text-4xl text-charcoal">Checkout</h1>
             <p className="font-body text-sm text-charcoal/60 mt-1">
               Provide delivery coordinates and complete your seasonal harvest order.
             </p>
+
+            {/* Goal-Gradient 3-Step Indicator */}
+            <div className="mt-6 flex items-center justify-center gap-2 sm:gap-4 text-xs font-body">
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${user ? 'bg-soft-sage/50 border-orchard-green/30 text-orchard-green font-semibold' : 'bg-orchard-green text-white border-orchard-green font-semibold'}`}>
+                <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">1</span>
+                <span>Account</span>
+              </div>
+              <span className="w-6 h-px bg-charcoal/20" />
+              <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border ${user ? 'bg-orchard-green text-white border-orchard-green font-semibold shadow-sm' : 'bg-white border-charcoal/15 text-charcoal/50'}`}>
+                <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">2</span>
+                <span>Delivery</span>
+              </div>
+              <span className="w-6 h-px bg-charcoal/20" />
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border bg-white border-charcoal/15 text-charcoal/50">
+                <span className="w-4 h-4 rounded-full bg-charcoal/5 flex items-center justify-center text-[10px]">3</span>
+                <span>Confirm</span>
+              </div>
+            </div>
           </div>
 
           <form onSubmit={handlePayment} className="grid grid-cols-1 lg:grid-cols-12 gap-10 max-w-content mx-auto">
-            {/* Delivery Details Left */}
+            {/* Delivery Details Left (Directional Stepper Slide) */}
             <div className="lg:col-span-7 space-y-6">
+              <AnimatePresence mode="wait">
               {!user ? (
-                <div className="bg-white p-8 md:p-10 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6">
+                <motion.div
+                  key="checkout-step-auth"
+                  initial={{ opacity: 0, scale: 0.97, x: -24 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.97, x: -32 }}
+                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                  className="bg-white p-8 md:p-10 rounded-softer shadow-card border border-charcoal/10 text-center space-y-6"
+                >
                   <div className="w-16 h-16 rounded-full bg-soft-sage/50 text-orchard-green flex items-center justify-center mx-auto">
                     <User className="w-8 h-8 text-orchard-green" />
                   </div>
@@ -259,9 +286,16 @@ export default function CheckoutPage() {
                       Return to Basket
                     </Button>
                   </div>
-                </div>
+                </motion.div>
               ) : (
-                <div className="bg-white p-6 md:p-8 rounded-softer shadow-card border border-charcoal/10 space-y-6">
+                <motion.div
+                  key="checkout-step-delivery"
+                  initial={{ opacity: 0, scale: 0.97, x: 32 }}
+                  animate={{ opacity: 1, scale: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.97, x: 32 }}
+                  transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+                  className="bg-white p-6 md:p-8 rounded-softer shadow-card border border-charcoal/10 space-y-6"
+                >
                   <div className="flex items-center justify-between border-b border-charcoal/10 pb-4">
                     <h3 className="font-display text-2xl text-charcoal">Delivery Address</h3>
                     <span className="font-body text-xs text-charcoal/50">All fields required</span>
@@ -353,8 +387,9 @@ export default function CheckoutPage() {
                       className="w-full px-3 py-2 text-xs font-body rounded-soft border border-charcoal/20 focus:outline-none focus:border-orchard-green resize-none"
                     />
                   </div>
-                </div>
+                </motion.div>
               )}
+              </AnimatePresence>
             </div>
 
             {/* Order Summary Right */}

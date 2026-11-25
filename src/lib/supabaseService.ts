@@ -1,6 +1,7 @@
 import { supabase } from './supabase';
 import { useOrchardStore } from '../stores/orchardStore';
 import { MOCK_PRODUCTS, MOCK_TREES, MOCK_JOURNAL_ARTICLES } from './mockData';
+import { getTreePhotos } from './utils';
 import type { Product, Tree, JournalArticle } from '../types/database';
 
 export const isRealSupabaseConfigured = (): boolean => {
@@ -44,7 +45,15 @@ export async function syncFromSupabase(): Promise<{ success: boolean; message: s
       .order('tree_id', { ascending: true });
 
     if (!treeErr && dbTrees && dbTrees.length > 0) {
-      useOrchardStore.setState({ trees: dbTrees as Tree[] });
+      const normalizedTrees = dbTrees.map((t: any) => {
+        const photos = getTreePhotos(t);
+        return {
+          ...t,
+          photo_url: photos[0] || null,
+          photos,
+        };
+      });
+      useOrchardStore.setState({ trees: normalizedTrees as Tree[] });
     }
 
     // 3. Fetch Journal Articles
